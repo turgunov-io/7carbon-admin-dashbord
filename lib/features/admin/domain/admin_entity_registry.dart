@@ -32,15 +32,9 @@ const adminEntities = <AdminEntityDefinition>[
     title: 'Баннеры',
     endpoint: '/admin/banners',
     icon: Icons.photo_library_outlined,
-    searchFields: ['section', 'title'],
+    searchFields: ['title'],
     fields: [
       _idField,
-      AdminFieldDefinition(
-        key: 'section',
-        label: 'Секция',
-        required: true,
-        nullable: false,
-      ),
       AdminFieldDefinition(
         key: 'title',
         label: 'Заголовок',
@@ -54,13 +48,8 @@ const adminEntities = <AdminEntityDefinition>[
         nullable: false,
         width: 320,
       ),
-      AdminFieldDefinition(
-        key: 'priority',
-        label: 'Приоритет',
-        type: AdminFieldType.number,
-      ),
     ],
-    listFieldKeys: ['id', 'section', 'title', 'image_url', 'priority'],
+    listFieldKeys: ['id', 'title', 'image_url'],
   ),
   AdminEntityDefinition(
     key: 'contact',
