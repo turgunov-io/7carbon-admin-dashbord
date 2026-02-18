@@ -12,6 +12,16 @@ class ApiClient {
   final Dio _dio;
 
   factory ApiClient.create() {
+    return ApiClient(createDio());
+  }
+
+  static Dio createDio() {
+    final headers = <String, String>{'Accept': 'application/json'};
+    final token = AppConfig.adminToken.trim();
+    if (token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
     final dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
@@ -19,7 +29,7 @@ class ApiClient {
         sendTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         responseType: ResponseType.json,
-        headers: const {'Accept': 'application/json'},
+        headers: headers,
       ),
     );
 
@@ -34,7 +44,7 @@ class ApiClient {
       );
     }
 
-    return ApiClient(dio);
+    return dio;
   }
 
   Future<dynamic> get(

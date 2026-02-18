@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
@@ -8,10 +9,16 @@ import '../domain/admin_entity_registry.dart';
 import '../models/admin_entity_item.dart';
 import 'admin_entity_state.dart';
 
+final dioProvider = Provider<Dio>((ref) {
+  final dio = ApiClient.createDio();
+  ref.onDispose(() {
+    dio.close(force: true);
+  });
+  return dio;
+});
+
 final apiClientProvider = Provider<ApiClient>((ref) {
-  final client = ApiClient.create();
-  ref.onDispose(client.dispose);
-  return client;
+  return ApiClient(ref.watch(dioProvider));
 });
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {

@@ -11,6 +11,7 @@ import '../application/admin_entity_state.dart';
 import '../application/admin_providers.dart';
 import '../domain/admin_entity_definition.dart';
 import '../models/admin_entity_item.dart';
+import '../../storage/ui/widgets/storage_upload_button.dart';
 
 class AdminEntityPage extends ConsumerStatefulWidget {
   const AdminEntityPage({
@@ -255,7 +256,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         return AlertDialog(
           title: Text('Детали записи #$id'),
           content: SizedBox(
-            width: 720,
+            width: MediaQuery.sizeOf(context).width < 820
+                ? MediaQuery.sizeOf(context).width * 0.9
+                : 720,
             child: FutureBuilder<AdminEntityItem>(
               future: controller.fetchDetails(id),
               builder: (context, snapshot) {
@@ -358,7 +361,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   }
 }
 
-class _EntityFormDialog extends StatefulWidget {
+class _EntityFormDialog extends ConsumerStatefulWidget {
   const _EntityFormDialog({
     required this.title,
     required this.entity,
@@ -370,28 +373,46 @@ class _EntityFormDialog extends StatefulWidget {
   final Map<String, dynamic>? initialValues;
 
   @override
-  State<_EntityFormDialog> createState() => _EntityFormDialogState();
+  ConsumerState<_EntityFormDialog> createState() => _EntityFormDialogState();
 }
 
-class _EntityFormDialogState extends State<_EntityFormDialog> {
+class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final Map<String, TextEditingController> _controllers;
+  late final Map<String, List<TextEditingController>> _arrayControllers;
+  final _arrayErrors = <String, String>{};
 
   @override
   void initState() {
     super.initState();
+    _arrayControllers = {};
     _controllers = {
       for (final field in widget.entity.formFields)
-        field.key: TextEditingController(
-          text: _initialText(widget.initialValues?[field.key], field.type),
-        ),
+        if (field.type != AdminFieldType.array)
+          field.key: TextEditingController(
+            text: _initialText(widget.initialValues?[field.key], field.type),
+          ),
     };
+
+    for (final field in widget.entity.formFields) {
+      if (field.type == AdminFieldType.array) {
+        final values = _initialArrayValues(widget.initialValues?[field.key]);
+        _arrayControllers[field.key] = values
+            .map((value) => TextEditingController(text: value))
+            .toList(growable: true);
+      }
+    }
   }
 
   @override
   void dispose() {
     for (final controller in _controllers.values) {
       controller.dispose();
+    }
+    for (final list in _arrayControllers.values) {
+      for (final controller in list) {
+        controller.dispose();
+      }
     }
     super.dispose();
   }
@@ -401,7 +422,9 @@ class _EntityFormDialogState extends State<_EntityFormDialog> {
     return AlertDialog(
       title: Text(widget.title),
       content: SizedBox(
-        width: 680,
+        width: MediaQuery.sizeOf(context).width < 820
+            ? MediaQuery.sizeOf(context).width * 0.9
+            : 680,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -409,32 +432,10 @@ class _EntityFormDialogState extends State<_EntityFormDialog> {
               mainAxisSize: MainAxisSize.min,
               children: widget.entity.formFields
                   .map((field) {
-                    final controller = _controllers[field.key]!;
-                    final isLongText =
-                        field.type == AdminFieldType.multiline ||
-                        field.type == AdminFieldType.array ||
-                        field.type == AdminFieldType.json;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: TextFormField(
-                        controller: controller,
-                        minLines: isLongText ? 2 : 1,
-                        maxLines: isLongText ? 6 : 1,
-                        decoration: InputDecoration(
-                          labelText: field.required
-                              ? '${field.label} *'
-                              : field.label,
-                          helperText: switch (field.type) {
-                            AdminFieldType.array =>
-                              'Введите JSON массив или значения по строкам',
-                            AdminFieldType.json => 'Введите JSON объект/массив',
-                            _ => null,
-                          },
-                        ),
-                        validator: (value) => _validateField(field, value),
-                      ),
-                    );
+                    if (field.type == AdminFieldType.array) {
+                      return _buildArrayManager(field);
+                    }
+                    return _buildTextField(field);
                   })
                   .toList(growable: false),
             ),
@@ -456,18 +457,50 @@ class _EntityFormDialogState extends State<_EntityFormDialog> {
       return;
     }
 
-    final result = <String, dynamic>{};
+    setState(() {
+      _arrayErrors.clear();
+    });
+
+    var hasArrayError = false;
     for (final field in widget.entity.formFields) {
-      final raw = _controllers[field.key]!.text.trim();
-      if (raw.isEmpty) {
-        if (!field.nullable) {
-          result[field.key] = '';
-        } else {
-          result[field.key] = null;
-        }
+      if (field.type != AdminFieldType.array) {
         continue;
       }
-      result[field.key] = _parseValue(field, raw);
+      final values = _arrayControllers[field.key]!
+          .map((controller) => controller.text.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+      if (field.required && values.isEmpty) {
+        _arrayErrors[field.key] = 'Добавьте минимум один URL';
+        hasArrayError = true;
+      }
+    }
+
+    if (hasArrayError) {
+      setState(() {});
+      return;
+    }
+
+    final result = <String, dynamic>{};
+    for (final field in widget.entity.formFields) {
+      if (field.type == AdminFieldType.array) {
+        final values = _arrayControllers[field.key]!
+            .map((controller) => controller.text.trim())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false);
+        result[field.key] = values;
+      } else {
+        final raw = _controllers[field.key]!.text.trim();
+        if (raw.isEmpty) {
+          if (!field.nullable) {
+            result[field.key] = '';
+          } else {
+            result[field.key] = null;
+          }
+          continue;
+        }
+        result[field.key] = _parseValue(field, raw);
+      }
     }
 
     Navigator.of(context).pop(result);
@@ -498,6 +531,203 @@ class _EntityFormDialogState extends State<_EntityFormDialog> {
     }
 
     return null;
+  }
+
+  Widget _buildTextField(AdminFieldDefinition field) {
+    final controller = _controllers[field.key]!;
+    final isLongText =
+        field.type == AdminFieldType.multiline ||
+        field.type == AdminFieldType.json;
+    final uploadable = _isSingleUploadTarget(field);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: controller,
+            minLines: isLongText ? 2 : 1,
+            maxLines: isLongText ? 6 : 1,
+            decoration: InputDecoration(
+              labelText: field.required ? '${field.label} *' : field.label,
+              helperText: switch (field.type) {
+                AdminFieldType.json => 'Введите JSON объект/массив',
+                _ => null,
+              },
+            ),
+            validator: (value) => _validateField(field, value),
+          ),
+          if (uploadable) ...[
+            const SizedBox(height: 8),
+            StorageUploadButton(
+              label: 'Загрузить и вставить URL',
+              folder: _suggestedFolder(field),
+              onUploaded: (result) {
+                controller.text = result.publicUrl;
+                setState(() {});
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArrayManager(AdminFieldDefinition field) {
+    final items = _arrayControllers[field.key]!;
+    final uploadable = _isArrayUploadTarget(field);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  field.required ? '${field.label} *' : field.label,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _addArrayItem(field.key),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Добавить URL'),
+                ),
+                if (uploadable)
+                  StorageUploadButton(
+                    label: 'Загрузить и добавить',
+                    folder: _suggestedFolder(field),
+                    onUploaded: (result) {
+                      _addArrayItem(field.key, initialValue: result.publicUrl);
+                    },
+                  ),
+              ],
+            ),
+            if (_arrayErrors[field.key] != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _arrayErrors[field.key]!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ],
+            const SizedBox(height: 8),
+            if (items.isEmpty)
+              const Text('Список пуст')
+            else
+              Column(
+                children: List.generate(items.length, (index) {
+                  final controller = items[index];
+                  return Padding(
+                    key: ValueKey('${field.key}-$index'),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: controller,
+                            decoration: InputDecoration(
+                              labelText: 'URL ${index + 1}',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Вверх',
+                          onPressed: index == 0
+                              ? null
+                              : () =>
+                                    _moveArrayItem(field.key, index, index - 1),
+                          icon: const Icon(Icons.arrow_upward_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Вниз',
+                          onPressed: index == items.length - 1
+                              ? null
+                              : () =>
+                                    _moveArrayItem(field.key, index, index + 1),
+                          icon: const Icon(Icons.arrow_downward_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Удалить',
+                          onPressed: () => _removeArrayItem(field.key, index),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addArrayItem(String fieldKey, {String initialValue = ''}) {
+    setState(() {
+      _arrayControllers[fieldKey]!.add(
+        TextEditingController(text: initialValue),
+      );
+      _arrayErrors.remove(fieldKey);
+    });
+  }
+
+  void _removeArrayItem(String fieldKey, int index) {
+    setState(() {
+      final controller = _arrayControllers[fieldKey]!.removeAt(index);
+      controller.dispose();
+    });
+  }
+
+  void _moveArrayItem(String fieldKey, int from, int to) {
+    setState(() {
+      final items = _arrayControllers[fieldKey]!;
+      final value = items.removeAt(from);
+      items.insert(to, value);
+    });
+  }
+
+  bool _isSingleUploadTarget(AdminFieldDefinition field) {
+    final key = '${widget.entity.key}.${field.key}';
+    return _singleUploadTargets.contains(key);
+  }
+
+  bool _isArrayUploadTarget(AdminFieldDefinition field) {
+    final key = '${widget.entity.key}.${field.key}';
+    return _arrayUploadTargets.contains(key);
+  }
+
+  String? _suggestedFolder(AdminFieldDefinition field) {
+    final entityKey = widget.entity.key;
+    final fieldKey = field.key;
+    if (entityKey == 'banners') {
+      return 'banners/home';
+    }
+    if (entityKey == 'partners') {
+      return 'partners';
+    }
+    if (entityKey == 'portfolio_items') {
+      return 'portfolio/items';
+    }
+    if (entityKey == 'tuning' && fieldKey == 'card_image_url') {
+      return 'tuning/card';
+    }
+    if (entityKey == 'tuning' && fieldKey == 'full_image_url') {
+      return 'tuning/full';
+    }
+    if (entityKey == 'service_offerings' && fieldKey == 'gallery_images') {
+      return 'service_offerings/gallery';
+    }
+    if (entityKey == 'work_post' && fieldKey == 'gallery_images') {
+      return 'work_post/gallery';
+    }
+    return entityKey;
   }
 
   dynamic _parseValue(AdminFieldDefinition field, String raw) {
@@ -560,4 +790,35 @@ class _EntityFormDialogState extends State<_EntityFormDialog> {
     }
     return value.toString();
   }
+
+  List<String> _initialArrayValues(dynamic value) {
+    if (value is List) {
+      return value.map((item) => item.toString()).toList(growable: false);
+    }
+    if (value is String) {
+      final parsed = _tryJsonDecode(value);
+      if (parsed is List) {
+        return parsed.map((item) => item.toString()).toList(growable: false);
+      }
+      return value
+          .split(RegExp(r'[\n,]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+    }
+    return const <String>[];
+  }
 }
+
+const _singleUploadTargets = <String>{
+  'banners.image_url',
+  'partners.logo_url',
+  'portfolio_items.image_url',
+  'tuning.card_image_url',
+};
+
+const _arrayUploadTargets = <String>{
+  'tuning.full_image_url',
+  'service_offerings.gallery_images',
+  'work_post.gallery_images',
+};

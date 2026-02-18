@@ -80,92 +80,115 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 280,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search),
-                      hintText: widget.searchHint,
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _query = value;
-                      });
-                    },
-                  ),
-                ),
-                ...widget.toolbarWidgets,
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (filtered.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: Text('Записи не найдены')),
-              )
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final viewportWidth = constraints.maxWidth.isFinite
-                      ? constraints.maxWidth
-                      : MediaQuery.sizeOf(context).width;
-                  final estimatedTableWidth = widget.columns.length * 180.0;
-                  final tableWidth = estimatedTableWidth > viewportWidth
-                      ? estimatedTableWidth
-                      : viewportWidth;
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : MediaQuery.sizeOf(context).width;
+            final compact = maxWidth < 760;
+            final searchWidth = compact
+                ? (maxWidth - 24).clamp(220.0, 420.0).toDouble()
+                : 320.0;
 
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: tableWidth,
-                      child: PaginatedDataTable(
-                        header: Text('Всего: ${filtered.length}'),
-                        columns: List.generate(widget.columns.length, (index) {
-                          final column = widget.columns[index];
-                          return DataColumn(
-                            label: Text(column.label),
-                            numeric: column.numeric,
-                            onSort: column.sortValue == null
-                                ? null
-                                : (columnIndex, ascending) {
-                                    setState(() {
-                                      _sortColumnIndex = columnIndex;
-                                      _sortAscending = ascending;
-                                    });
-                                  },
-                          );
-                        }),
-                        source: dataSource,
-                        rowsPerPage: rowsPerPage,
-                        availableRowsPerPage: availableRowsPerPage,
-                        onRowsPerPageChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: searchWidth,
+                      child: TextField(
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search),
+                          hintText: widget.searchHint,
+                        ),
+                        onChanged: (value) {
                           setState(() {
-                            _rowsPerPage = value;
+                            _query = value;
                           });
                         },
-                        showFirstLastButtons: true,
-                        sortColumnIndex: _sortColumnIndex,
-                        sortAscending: _sortAscending,
-                        headingRowHeight: 48,
-                        dataRowMinHeight: 52,
-                        dataRowMaxHeight: 92,
                       ),
                     ),
-                  );
-                },
-              ),
-          ],
+                    ...widget.toolbarWidgets,
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (filtered.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: Text('Записи не найдены')),
+                  )
+                else
+                  _buildDataTable(
+                    context: context,
+                    maxWidth: maxWidth,
+                    filteredCount: filtered.length,
+                    rowsPerPage: rowsPerPage,
+                    availableRowsPerPage: availableRowsPerPage,
+                    dataSource: dataSource,
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataTable({
+    required BuildContext context,
+    required double maxWidth,
+    required int filteredCount,
+    required int rowsPerPage,
+    required List<int> availableRowsPerPage,
+    required DataTableSource dataSource,
+  }) {
+    final estimatedTableWidth = widget.columns.length * 180.0;
+    final tableWidth = estimatedTableWidth > maxWidth
+        ? estimatedTableWidth
+        : maxWidth;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: tableWidth, maxWidth: tableWidth),
+        child: PaginatedDataTable(
+          header: Text('Всего: $filteredCount'),
+          columns: List.generate(widget.columns.length, (index) {
+            final column = widget.columns[index];
+            return DataColumn(
+              label: Text(column.label),
+              numeric: column.numeric,
+              onSort: column.sortValue == null
+                  ? null
+                  : (columnIndex, ascending) {
+                      setState(() {
+                        _sortColumnIndex = columnIndex;
+                        _sortAscending = ascending;
+                      });
+                    },
+            );
+          }),
+          source: dataSource,
+          rowsPerPage: rowsPerPage,
+          availableRowsPerPage: availableRowsPerPage,
+          onRowsPerPageChanged: (value) {
+            if (value == null) {
+              return;
+            }
+            setState(() {
+              _rowsPerPage = value;
+            });
+          },
+          showFirstLastButtons: true,
+          sortColumnIndex: _sortColumnIndex,
+          sortAscending: _sortAscending,
+          headingRowHeight: 48,
+          dataRowMinHeight: 52,
+          dataRowMaxHeight: 92,
         ),
       ),
     );

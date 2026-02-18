@@ -7,6 +7,8 @@ class AppTheme {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0E7490)),
+      // Avoid remote Roboto fetch on restricted networks in Flutter Web.
+      fontFamily: 'Arial',
     );
 
     return base.copyWith(

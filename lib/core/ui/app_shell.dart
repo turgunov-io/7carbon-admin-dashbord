@@ -14,7 +14,7 @@ class AppShell extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final selectedIndex = _selectedIndex(location);
 
-    if (width < 900) {
+    if (width < 960) {
       return Scaffold(
         appBar: AppBar(title: Text(AppRoutes.titleByLocation(location))),
         drawer: Drawer(
@@ -33,13 +33,18 @@ class AppShell extends StatelessWidget {
                     itemCount: AppRoutes.navItems.length,
                     itemBuilder: (context, index) {
                       final item = AppRoutes.navItems[index];
+                      final itemEnabled = item.enabled;
                       return ListTile(
                         selected: selectedIndex == index,
+                        enabled: itemEnabled,
                         leading: Icon(item.icon),
                         title: Text(item.title),
+                        subtitle: itemEnabled || item.disabledHint == null
+                            ? null
+                            : Text(item.disabledHint!),
                         onTap: () {
                           Navigator.of(context).pop();
-                          context.go(item.path);
+                          _onNavTap(context, item);
                         },
                       );
                     },
@@ -53,16 +58,16 @@ class AppShell extends StatelessWidget {
       );
     }
 
-    final railExtended = width > 1320;
+    final railExtended = width >= 1360;
     return Scaffold(
       body: Row(
         children: [
           SafeArea(
             child: NavigationRail(
-              selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+              selectedIndex: selectedIndex,
               extended: railExtended,
               onDestinationSelected: (index) {
-                context.go(AppRoutes.navItems[index].path);
+                _onNavTap(context, AppRoutes.navItems[index]);
               },
               leading: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -74,7 +79,14 @@ class AppShell extends StatelessWidget {
               destinations: AppRoutes.navItems
                   .map(
                     (item) => NavigationRailDestination(
-                      icon: Icon(item.icon),
+                      icon: Icon(
+                        item.icon,
+                        color: item.enabled
+                            ? null
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
                       label: Text(item.title),
                     ),
                   )
@@ -95,5 +107,17 @@ class AppShell extends StatelessWidget {
       }
     }
     return 0;
+  }
+
+  void _onNavTap(BuildContext context, AppNavItem item) {
+    if (!item.enabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(item.disabledHint ?? 'Раздел временно недоступен'),
+        ),
+      );
+      return;
+    }
+    context.go(item.path);
   }
 }
