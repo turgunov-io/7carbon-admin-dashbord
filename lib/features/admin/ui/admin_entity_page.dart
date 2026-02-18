@@ -32,15 +32,24 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   final _tuningSearchController = TextEditingController();
   final _partnersSearchController = TextEditingController();
   final _bannersSearchController = TextEditingController();
+  final _portfolioSearchController = TextEditingController();
+  final _workPostSearchController = TextEditingController();
+  final _blogPostSearchController = TextEditingController();
   String _tuningSearchQuery = '';
   String _partnersSearchQuery = '';
   String _bannersSearchQuery = '';
+  String _portfolioSearchQuery = '';
+  String _workPostSearchQuery = '';
+  String _blogPostSearchQuery = '';
 
   @override
   void dispose() {
     _tuningSearchController.dispose();
     _partnersSearchController.dispose();
     _bannersSearchController.dispose();
+    _portfolioSearchController.dispose();
+    _workPostSearchController.dispose();
+    _blogPostSearchController.dispose();
     super.dispose();
   }
 
@@ -117,6 +126,44 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         entity: entity,
         state: state,
         controller: controller,
+      );
+    }
+
+    if (entity.key == 'portfolio_items') {
+      return _buildPortfolioList(
+        entity: entity,
+        state: state,
+        controller: controller,
+      );
+    }
+
+    if (entity.key == 'work_post') {
+      return _buildPostCardsList(
+        entity: entity,
+        state: state,
+        controller: controller,
+        searchController: _workPostSearchController,
+        searchQuery: _workPostSearchQuery,
+        onQueryChanged: (value) {
+          setState(() {
+            _workPostSearchQuery = value;
+          });
+        },
+      );
+    }
+
+    if (entity.key == 'blog_posts') {
+      return _buildPostCardsList(
+        entity: entity,
+        state: state,
+        controller: controller,
+        searchController: _blogPostSearchController,
+        searchQuery: _blogPostSearchQuery,
+        onQueryChanged: (value) {
+          setState(() {
+            _blogPostSearchQuery = value;
+          });
+        },
       );
     }
 
@@ -548,6 +595,451 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               Expanded(child: infoBlock),
                               const SizedBox(width: 8),
                               actionButtons,
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPortfolioList({
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+  }) {
+    final query = _portfolioSearchQuery.trim().toLowerCase();
+    final filtered = state.items
+        .where((item) {
+          if (query.isEmpty) {
+            return true;
+          }
+          final id = item.id.toString().toLowerCase();
+          final brand = _displayValue(item.values['brand']).toLowerCase();
+          final title = _displayValue(item.values['title']).toLowerCase();
+          final description = _displayValue(
+            item.values['description'],
+          ).toLowerCase();
+          final imageUrl = _displayValue(
+            item.values['image_url'],
+          ).toLowerCase();
+          return id.contains(query) ||
+              brand.contains(query) ||
+              title.contains(query) ||
+              description.contains(query) ||
+              imageUrl.contains(query);
+        })
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 360,
+              child: TextField(
+                controller: _portfolioSearchController,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search by title, brand or image URL',
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _portfolioSearchQuery = value;
+                  });
+                },
+              ),
+            ),
+            if (state.errorMessage != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  state.errorMessage!,
+                  style: const TextStyle(color: Colors.redAccent),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          const Expanded(
+            child: EmptyState(message: 'No records for selected filters'),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final item = filtered[index];
+                final brand = _displayValue(item.values['brand']);
+                final title = _displayValue(item.values['title']);
+                final description = _displayValue(item.values['description']);
+                final createdAt = _displayValue(item.values['created_at']);
+                final imageUrlText = _displayValue(item.values['image_url']);
+                final imageUrl = _normalizedUrl(item.values['image_url']);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 920;
+
+                        final actionButtons = Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            IconButton(
+                              tooltip: 'Р”РµС‚Р°Р»Рё',
+                              onPressed: () => _openDetailsDialog(
+                                entity,
+                                controller,
+                                item.id,
+                              ),
+                              icon: const Icon(Icons.visibility_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ',
+                              onPressed: () =>
+                                  _openEditDialog(entity, controller, item),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'РЈРґР°Р»РёС‚СЊ',
+                              onPressed: () =>
+                                  _confirmDelete(entity, controller, item.id),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        );
+
+                        final chips = <Widget>[
+                          Chip(
+                            label: Text('ID: ${item.id}'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          if (brand != dashValue)
+                            Chip(
+                              label: Text('Brand: $brand'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (createdAt != dashValue)
+                            Chip(
+                              label: Text('Created: $createdAt'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                        ];
+
+                        final infoBlock = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: compact ? 2 : 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(spacing: 8, runSpacing: 6, children: chips),
+                            const SizedBox(height: 8),
+                            Text(
+                              description,
+                              maxLines: compact ? 4 : 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            SelectableText(
+                              imageUrlText,
+                              maxLines: compact ? 3 : 2,
+                            ),
+                          ],
+                        );
+
+                        if (compact) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () =>
+                                _openDetailsDialog(entity, controller, item.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AspectRatio(
+                                  aspectRatio: 16 / 9,
+                                  child: _BannerImagePreview(url: imageUrl),
+                                ),
+                                const SizedBox(height: 10),
+                                infoBlock,
+                                const SizedBox(height: 6),
+                                actionButtons,
+                              ],
+                            ),
+                          );
+                        }
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _openDetailsDialog(entity, controller, item.id),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 240,
+                                height: 140,
+                                child: _BannerImagePreview(url: imageUrl),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: infoBlock),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 130,
+                                child: Align(
+                                  alignment: Alignment.topRight,
+                                  child: actionButtons,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPostCardsList({
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+    required TextEditingController searchController,
+    required String searchQuery,
+    required ValueChanged<String> onQueryChanged,
+  }) {
+    final query = searchQuery.trim().toLowerCase();
+    final filtered = state.items
+        .where((item) {
+          if (query.isEmpty) {
+            return true;
+          }
+          final id = item.id.toString().toLowerCase();
+          final title = _displayValue(item.values['title_model']).toLowerCase();
+          final description = _displayValue(
+            item.values['description'],
+          ).toLowerCase();
+          final fullDescription = _displayValue(
+            item.values['full_description'],
+          ).toLowerCase();
+          final imageUrl = _displayValue(
+            item.values['image_url'],
+          ).toLowerCase();
+          final videoUrl = _displayValue(
+            item.values['video_url'],
+          ).toLowerCase();
+          return id.contains(query) ||
+              title.contains(query) ||
+              description.contains(query) ||
+              fullDescription.contains(query) ||
+              imageUrl.contains(query) ||
+              videoUrl.contains(query);
+        })
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 360,
+              child: TextField(
+                controller: searchController,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search by title, description, image or video URL',
+                ),
+                onChanged: onQueryChanged,
+              ),
+            ),
+            if (state.errorMessage != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  state.errorMessage!,
+                  style: const TextStyle(color: Colors.redAccent),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          const Expanded(
+            child: EmptyState(message: 'No records for selected filters'),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final item = filtered[index];
+                final title = _displayValue(item.values['title_model']);
+                final description = _displayValue(item.values['description']);
+                final fullDescription = _displayValue(
+                  item.values['full_description'],
+                );
+                final previewText = description == dashValue
+                    ? fullDescription
+                    : description;
+                final createdAt = _displayValue(item.values['created_at']);
+                final imageUrlText = _displayValue(item.values['image_url']);
+                final imageUrl = _normalizedUrl(item.values['image_url']);
+                final videoUrl = _displayValue(item.values['video_url']);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 920;
+
+                        final actionButtons = Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            IconButton(
+                              tooltip: 'Details',
+                              onPressed: () => _openDetailsDialog(
+                                entity,
+                                controller,
+                                item.id,
+                              ),
+                              icon: const Icon(Icons.visibility_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Edit',
+                              onPressed: () =>
+                                  _openEditDialog(entity, controller, item),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Delete',
+                              onPressed: () =>
+                                  _confirmDelete(entity, controller, item.id),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        );
+
+                        final chips = <Widget>[
+                          Chip(
+                            label: Text('ID: ${item.id}'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          if (createdAt != dashValue)
+                            Chip(
+                              label: Text('Created: $createdAt'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (videoUrl != dashValue)
+                            const Chip(
+                              label: Text('Video'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                        ];
+
+                        final infoBlock = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: compact ? 2 : 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(spacing: 8, runSpacing: 6, children: chips),
+                            const SizedBox(height: 8),
+                            Text(
+                              previewText,
+                              maxLines: compact ? 4 : 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            SelectableText(
+                              imageUrlText,
+                              maxLines: compact ? 3 : 2,
+                            ),
+                          ],
+                        );
+
+                        if (compact) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () =>
+                                _openDetailsDialog(entity, controller, item.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AspectRatio(
+                                  aspectRatio: 16 / 9,
+                                  child: _BannerImagePreview(url: imageUrl),
+                                ),
+                                const SizedBox(height: 10),
+                                infoBlock,
+                                const SizedBox(height: 6),
+                                actionButtons,
+                              ],
+                            ),
+                          );
+                        }
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _openDetailsDialog(entity, controller, item.id),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 240,
+                                height: 140,
+                                child: _BannerImagePreview(url: imageUrl),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: infoBlock),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 130,
+                                child: Align(
+                                  alignment: Alignment.topRight,
+                                  child: actionButtons,
+                                ),
+                              ),
                             ],
                           ),
                         );

@@ -3,7 +3,7 @@ class AppConfig {
 
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:7777',
+    defaultValue: 'https://api.7carbon.uz',
   );
 
   static const adminToken = String.fromEnvironment(                                       
