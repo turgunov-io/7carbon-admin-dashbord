@@ -1,8 +1,8 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/ui/widgets/entity_table.dart';
 import '../../../core/ui/widgets/formatters.dart';
 import '../../../core/ui/widgets/section_container.dart';
@@ -34,13 +34,15 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   final _bannersSearchController = TextEditingController();
   final _portfolioSearchController = TextEditingController();
   final _workPostSearchController = TextEditingController();
-  final _blogPostSearchController = TextEditingController();
+  final _consultationsSearchController = TextEditingController();
+  final _serviceOfferingsSearchController = TextEditingController();
   String _tuningSearchQuery = '';
   String _partnersSearchQuery = '';
   String _bannersSearchQuery = '';
   String _portfolioSearchQuery = '';
   String _workPostSearchQuery = '';
-  String _blogPostSearchQuery = '';
+  String _consultationsSearchQuery = '';
+  String _serviceOfferingsSearchQuery = '';
 
   @override
   void dispose() {
@@ -49,7 +51,8 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     _bannersSearchController.dispose();
     _portfolioSearchController.dispose();
     _workPostSearchController.dispose();
-    _blogPostSearchController.dispose();
+    _consultationsSearchController.dispose();
+    _serviceOfferingsSearchController.dispose();
     super.dispose();
   }
 
@@ -152,23 +155,24 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       );
     }
 
-    if (entity.key == 'blog_posts') {
-      return _buildPostCardsList(
+    if (entity.key == 'consultations') {
+      return _buildConsultationsList(
         entity: entity,
         state: state,
         controller: controller,
-        searchController: _blogPostSearchController,
-        searchQuery: _blogPostSearchQuery,
-        onQueryChanged: (value) {
-          setState(() {
-            _blogPostSearchQuery = value;
-          });
-        },
       );
     }
 
     if (entity.key == 'tuning') {
       return _buildTuningCards(
+        entity: entity,
+        state: state,
+        controller: controller,
+      );
+    }
+
+    if (entity.key == 'service_offerings') {
+      return _buildServiceOfferingsList(
         entity: entity,
         state: state,
         controller: controller,
@@ -703,7 +707,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           runSpacing: 2,
                           children: [
                             IconButton(
-                              tooltip: 'Р”РµС‚Р°Р»Рё',
+                              tooltip: 'Детали',
                               onPressed: () => _openDetailsDialog(
                                 entity,
                                 controller,
@@ -712,13 +716,13 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               icon: const Icon(Icons.visibility_outlined),
                             ),
                             IconButton(
-                              tooltip: 'Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ',
+                              tooltip: 'Редактировать',
                               onPressed: () =>
                                   _openEditDialog(entity, controller, item),
                               icon: const Icon(Icons.edit_outlined),
                             ),
                             IconButton(
-                              tooltip: 'РЈРґР°Р»РёС‚СЊ',
+                              tooltip: 'Удалить',
                               onPressed: () =>
                                   _confirmDelete(entity, controller, item.id),
                               icon: const Icon(Icons.delete_outline),
@@ -1054,6 +1058,245 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     );
   }
 
+  Widget _buildConsultationsList({
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+  }) {
+    final query = _consultationsSearchQuery.trim().toLowerCase();
+    final filtered = state.items
+        .where((item) {
+          if (query.isEmpty) {
+            return true;
+          }
+          final id = item.id.toString().toLowerCase();
+          final firstName = _displayValue(
+            item.values['first_name'],
+          ).toLowerCase();
+          final lastName = _displayValue(
+            item.values['last_name'],
+          ).toLowerCase();
+          final phone = _displayValue(item.values['phone']).toLowerCase();
+          final serviceType = _displayValue(
+            item.values['service_type'],
+          ).toLowerCase();
+          final status = _displayValue(item.values['status']).toLowerCase();
+          final comments = _displayValue(item.values['comments']).toLowerCase();
+          return id.contains(query) ||
+              firstName.contains(query) ||
+              lastName.contains(query) ||
+              phone.contains(query) ||
+              serviceType.contains(query) ||
+              status.contains(query) ||
+              comments.contains(query);
+        })
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 380,
+              child: TextField(
+                controller: _consultationsSearchController,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search by name, phone, service or status',
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _consultationsSearchQuery = value;
+                  });
+                },
+              ),
+            ),
+            if (state.errorMessage != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  state.errorMessage!,
+                  style: const TextStyle(color: Colors.redAccent),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          const Expanded(
+            child: EmptyState(message: 'No records for selected filters'),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final item = filtered[index];
+                final firstName = _displayValue(item.values['first_name']);
+                final lastName = _displayValue(item.values['last_name']);
+                final phone = _displayValue(item.values['phone']);
+                final serviceType = _displayValue(item.values['service_type']);
+                final carModel = _displayValue(item.values['car_model']);
+                final preferredCallTime = _displayValue(
+                  item.values['preferred_call_time'],
+                );
+                final comments = _displayValue(item.values['comments']);
+                final status = _displayValue(item.values['status']);
+                final createdAt = _displayValue(item.values['created_at']);
+                final fullName = ('$firstName $lastName').trim();
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 920;
+
+                        final actionButtons = Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            IconButton(
+                              tooltip: 'Details',
+                              onPressed: () => _openDetailsDialog(
+                                entity,
+                                controller,
+                                item.id,
+                              ),
+                              icon: const Icon(Icons.visibility_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Edit',
+                              onPressed: () =>
+                                  _openEditDialog(entity, controller, item),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Delete',
+                              onPressed: () =>
+                                  _confirmDelete(entity, controller, item.id),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        );
+
+                        final infoBlock = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              fullName == dashValue ? 'Consultation' : fullName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                Chip(
+                                  label: Text('ID: ${item.id}'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                Chip(
+                                  label: Text('Status: $status'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                if (createdAt != dashValue)
+                                  Chip(
+                                    label: Text('Created: $createdAt'),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Phone: $phone',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Service: $serviceType',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (carModel != dashValue)
+                              Text(
+                                'Car model: $carModel',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            if (preferredCallTime != dashValue)
+                              Text(
+                                'Preferred call: $preferredCallTime',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            if (comments != dashValue) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                comments,
+                                maxLines: compact ? 4 : 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        );
+
+                        if (compact) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () =>
+                                _openDetailsDialog(entity, controller, item.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                infoBlock,
+                                const SizedBox(height: 6),
+                                actionButtons,
+                              ],
+                            ),
+                          );
+                        }
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _openDetailsDialog(entity, controller, item.id),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: infoBlock),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 130,
+                                child: Align(
+                                  alignment: Alignment.topRight,
+                                  child: actionButtons,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildTuningCards({
     required AdminEntityDefinition entity,
     required AdminEntityState state,
@@ -1234,6 +1477,288 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildServiceOfferingsList({
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+  }) {
+    final query = _serviceOfferingsSearchQuery.trim().toLowerCase();
+    final filtered = state.items
+        .where((item) {
+          if (query.isEmpty) {
+            return true;
+          }
+          final id = item.id.toString().toLowerCase();
+          final serviceType = _displayValue(
+            item.values['service_type'],
+          ).toLowerCase();
+          final title = _displayValue(item.values['title']).toLowerCase();
+          final description = _displayValue(
+            item.values['detailed_description'],
+          ).toLowerCase();
+          final priceText = _displayValue(
+            item.values['price_text'],
+          ).toLowerCase();
+          final gallery = _extractUrlList(
+            item.values['gallery_images'],
+          ).join(' ').toLowerCase();
+          return id.contains(query) ||
+              serviceType.contains(query) ||
+              title.contains(query) ||
+              description.contains(query) ||
+              priceText.contains(query) ||
+              gallery.contains(query);
+        })
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 420,
+              child: TextField(
+                controller: _serviceOfferingsSearchController,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText:
+                      'Search by service, title, description or image URL',
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _serviceOfferingsSearchQuery = value;
+                  });
+                },
+              ),
+            ),
+            if (state.errorMessage != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  state.errorMessage!,
+                  style: const TextStyle(color: Colors.redAccent),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          const Expanded(
+            child: EmptyState(message: 'No records for selected filters'),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final item = filtered[index];
+                final title = _displayValue(item.values['title']);
+                final serviceType = _displayValue(item.values['service_type']);
+                final description = _displayValue(
+                  item.values['detailed_description'],
+                );
+                final priceText = _displayValue(item.values['price_text']);
+                final position = _displayValue(item.values['position']);
+                final createdAt = _displayValue(item.values['created_at']);
+                final galleryUrls = _extractUrlList(
+                  item.values['gallery_images'],
+                );
+                final previewUrl = galleryUrls.isEmpty
+                    ? null
+                    : galleryUrls.first;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 960;
+                        final actionButtons = Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            IconButton(
+                              tooltip: 'Details',
+                              onPressed: () => _openDetailsDialog(
+                                entity,
+                                controller,
+                                item.id,
+                              ),
+                              icon: const Icon(Icons.visibility_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Edit',
+                              onPressed: () =>
+                                  _openEditDialog(entity, controller, item),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Delete',
+                              onPressed: () =>
+                                  _confirmDelete(entity, controller, item.id),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        );
+
+                        final chips = <Widget>[
+                          Chip(
+                            label: Text('ID: ${item.id}'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          if (serviceType != dashValue)
+                            Chip(
+                              label: Text(serviceType),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (priceText != dashValue)
+                            Chip(
+                              label: Text('Price: $priceText'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (position != dashValue)
+                            Chip(
+                              label: Text('Pos: $position'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (createdAt != dashValue)
+                            Chip(
+                              label: Text('Created: $createdAt'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          Chip(
+                            label: Text('Images: ${galleryUrls.length}'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ];
+
+                        final infoBlock = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: compact ? 2 : 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(spacing: 8, runSpacing: 6, children: chips),
+                            const SizedBox(height: 8),
+                            Text(
+                              description,
+                              maxLines: compact ? 5 : 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            if (galleryUrls.isEmpty)
+                              const Text('Gallery: —')
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  ...galleryUrls
+                                      .take(compact ? 4 : 6)
+                                      .map(
+                                        (url) => SizedBox(
+                                          width: 56,
+                                          height: 56,
+                                          child: _BannerImagePreview(url: url),
+                                        ),
+                                      ),
+                                  if (galleryUrls.length > (compact ? 4 : 6))
+                                    Chip(
+                                      label: Text(
+                                        '+${galleryUrls.length - (compact ? 4 : 6)}',
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                ],
+                              ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: galleryUrls.isEmpty
+                                    ? null
+                                    : () => _openImageGalleryDialog(
+                                        title: title,
+                                        urls: galleryUrls,
+                                      ),
+                                icon: const Icon(Icons.photo_library_outlined),
+                                label: const Text('View images'),
+                              ),
+                            ),
+                          ],
+                        );
+
+                        final preview = AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: _BannerImagePreview(url: previewUrl),
+                        );
+
+                        if (compact) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () =>
+                                _openDetailsDialog(entity, controller, item.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                preview,
+                                const SizedBox(height: 10),
+                                infoBlock,
+                                const SizedBox(height: 6),
+                                actionButtons,
+                              ],
+                            ),
+                          );
+                        }
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _openDetailsDialog(entity, controller, item.id),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 250,
+                                height: 142,
+                                child: _BannerImagePreview(url: previewUrl),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: infoBlock),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 130,
+                                child: Align(
+                                  alignment: Alignment.topRight,
+                                  child: actionButtons,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ),
                 );
@@ -1455,14 +1980,257 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   }
 
   String? _normalizedUrl(dynamic value) {
+    return _resolveImageUrl(value);
+  }
+
+  List<String> _extractUrlList(dynamic value) {
+    final urls = <String>{};
+
+    void addUrl(dynamic raw) {
+      final normalized = _resolveImageUrl(raw);
+      if (normalized != null) {
+        urls.add(normalized);
+      }
+    }
+
+    void collect(dynamic source) {
+      if (source == null) {
+        return;
+      }
+
+      if (source is List) {
+        for (final item in source) {
+          collect(item);
+        }
+        return;
+      }
+
+      if (source is Map) {
+        const candidateKeys = <String>[
+          'public_url',
+          'url',
+          'image_url',
+          'src',
+          'storage_url',
+          'path',
+        ];
+        var hasKnownKey = false;
+        for (final key in candidateKeys) {
+          if (source.containsKey(key)) {
+            hasKnownKey = true;
+            collect(source[key]);
+          }
+        }
+        if (!hasKnownKey) {
+          for (final entry in source.entries) {
+            final key = entry.key.toString().toLowerCase();
+            if (key.contains('url') ||
+                key.contains('image') ||
+                key.contains('path')) {
+              collect(entry.value);
+            }
+          }
+        }
+        return;
+      }
+
+      if (source is String) {
+        final normalized = source.trim();
+        if (normalized.isEmpty ||
+            normalized == dashValue ||
+            normalized.toLowerCase() == 'null') {
+          return;
+        }
+
+        final decoded = _tryJsonDecode(normalized);
+        if (decoded is List || decoded is Map) {
+          collect(decoded);
+          return;
+        }
+
+        if (normalized.contains('\n') || normalized.contains(',')) {
+          for (final token in normalized.split(RegExp(r'[\n,]'))) {
+            collect(token);
+          }
+          return;
+        }
+
+        addUrl(normalized);
+        return;
+      }
+
+      addUrl(source);
+    }
+
+    collect(value);
+    return urls.toList(growable: false);
+  }
+
+  String? _resolveImageUrl(dynamic value) {
     if (value == null) {
       return null;
     }
-    final normalized = value.toString().trim();
-    if (normalized.isEmpty || normalized == dashValue) {
+
+    var raw = value.toString().trim();
+    if (raw.isEmpty || raw == dashValue || raw.toLowerCase() == 'null') {
       return null;
     }
-    return normalized;
+
+    if ((raw.startsWith('"') && raw.endsWith('"')) ||
+        (raw.startsWith("'") && raw.endsWith("'"))) {
+      raw = raw.substring(1, raw.length - 1).trim();
+    }
+
+    raw = raw.replaceAll(r'\/', '/').replaceAll(r'\u0026', '&');
+    if (raw.isEmpty || raw == dashValue || raw.toLowerCase() == 'null') {
+      return null;
+    }
+
+    final parsed = Uri.tryParse(raw);
+    if (parsed != null && parsed.hasScheme) {
+      return raw;
+    }
+
+    final base = Uri.tryParse(AppConfig.apiBaseUrl);
+    if (base == null) {
+      return raw;
+    }
+
+    if (raw.startsWith('//')) {
+      return '${base.scheme}:$raw';
+    }
+
+    if (raw.startsWith('/')) {
+      return base.resolve(raw).toString();
+    }
+
+    if (raw.contains('/')) {
+      return base.resolve('/$raw').toString();
+    }
+
+    return null;
+  }
+
+  dynamic _tryJsonDecode(String text) {
+    try {
+      return jsonDecode(text);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _openImageGalleryDialog({
+    required String title,
+    required List<String> urls,
+  }) async {
+    if (urls.isEmpty) {
+      _showMessage('No images in gallery');
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        final width = MediaQuery.sizeOf(context).width;
+        final maxWidth = width < 1000 ? width * 0.92 : 980.0;
+        return Dialog(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: 760),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Gallery: $title',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: GridView.builder(
+                      itemCount: urls.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 250,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 0.95,
+                          ),
+                      itemBuilder: (context, index) {
+                        final imageUrl = urls[index];
+                        return Card(
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => _openSingleImageDialog(imageUrl),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _BannerImagePreview(url: imageUrl),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    8,
+                                    8,
+                                    8,
+                                    10,
+                                  ),
+                                  child: Text(
+                                    imageUrl,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Close'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openSingleImageDialog(String imageUrl) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000, maxHeight: 760),
+            child: InteractiveViewer(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('Failed to load image'),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showMessage(String message) {
@@ -1838,11 +2606,11 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
                   field.required ? '${field.label} *' : field.label,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                OutlinedButton.icon(
-                  onPressed: () => _addArrayItem(field.key),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Добавить URL'),
-                ),
+                // OutlinedButton.icon(
+                //   onPressed: () => _addArrayItem(field.key),
+                //   icon: const Icon(Icons.add),
+                //   label: const Text('Добавить URL'),
+                // ),
                 if (uploadable)
                   StorageUploadButton(
                     label: 'Загрузить и добавить',

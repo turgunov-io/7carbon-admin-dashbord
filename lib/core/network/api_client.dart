@@ -26,12 +26,15 @@ class ApiClient {
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
         connectTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         responseType: ResponseType.json,
         headers: headers,
       ),
     );
+
+    if (!kIsWeb) {
+      dio.options.sendTimeout = const Duration(seconds: 15);
+    }
 
     if (kDebugMode) {
       dio.interceptors.add(

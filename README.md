@@ -64,7 +64,6 @@ The dashboard implements List/Create/Edit/Delete/Details for:
 
 - `/admin/banners`
 - `/admin/contact`
-- `/admin/contact_page`
 - `/admin/about_page`
 - `/admin/about_metrics`
 - `/admin/about_sections`
