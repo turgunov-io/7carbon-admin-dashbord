@@ -37,9 +37,4 @@ if (!window._flutter) {
 _flutter.buildConfig = {"engineRevision":"cb467e31a54207dc987aca5bb0941c4d2e3fd9ed","builds":[{"compileTarget":"dart2js","renderer":"canvaskit","mainJsPath":"main.dart.js"},{}]};
 
 
-_flutter.loader.load({
-  config: {
-    // Force local CanvasKit resources instead of external CDN.
-    canvasKitBaseUrl: 'canvaskit/',
-  },
-});
+_flutter.loader.load();
