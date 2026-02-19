@@ -1,8 +1,9 @@
-import 'package:file_picker/file_picker.dart';
+﻿import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/network/api_error.dart';
 import '../../application/storage_providers.dart';
 import '../../models/storage_upload_result.dart';
 
@@ -13,7 +14,7 @@ class StorageUploadButton extends ConsumerStatefulWidget {
     this.folder,
     this.filename,
     this.upsert = true,
-    this.label = 'Upload',
+    this.label = 'Загрузить',
     super.key,
   });
 
@@ -106,9 +107,13 @@ class _StorageUploadButtonState extends ConsumerState<StorageUploadButton> {
       if (!mounted) {
         return;
       }
+      final message = switch (error) {
+        ApiError apiError => apiError.message,
+        _ => error.toString(),
+      };
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка загрузки: $error')));
+      ).showSnackBar(SnackBar(content: Text('Ошибка загрузки: $message')));
     } finally {
       if (mounted) {
         setState(() {

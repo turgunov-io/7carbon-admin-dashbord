@@ -24,11 +24,7 @@ class AppRoutes {
   const AppRoutes._();
 
   static const dashboard = '/dashboard';
-  static const storage = '/storage';
   static const entitiesPrefix = '/entities';
-
-  // Временно отключаем экран хранилища без удаления его кода.
-  static const storageEnabled = false;
 
   static String entity(String key) => '$entitiesPrefix/$key';
   static String createEntity(String key) => '${entity(key)}?create=1';
@@ -38,13 +34,6 @@ class AppRoutes {
       title: 'Дашборд',
       path: dashboard,
       icon: Icons.dashboard_outlined,
-    ),
-    AppNavItem(
-      title: 'Хранилище',
-      path: storage,
-      icon: Icons.cloud_outlined,
-      enabled: storageEnabled,
-      disabledHint: 'Раздел временно отключен',
     ),
     ...adminEntities.map(
       (entity) => AppNavItem(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/api_error.dart';
 import '../../../core/ui/widgets/entity_table.dart';
 import '../../../core/ui/widgets/formatters.dart';
 import '../../../core/ui/widgets/section_container.dart';
@@ -655,7 +656,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 controller: _portfolioSearchController,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText: 'Search by title, brand or image URL',
+                  hintText: 'Поиск по заголовку, бренду или изображению',
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -679,7 +680,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         const SizedBox(height: 12),
         if (filtered.isEmpty)
           const Expanded(
-            child: EmptyState(message: 'No records for selected filters'),
+            child: EmptyState(message: 'По выбранным фильтрам записей нет'),
           )
         else
           Expanded(
@@ -737,7 +738,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           ),
                           if (brand != dashValue)
                             Chip(
-                              label: Text('Brand: $brand'),
+                              label: Text('Бренд: $brand'),
                               visualDensity: VisualDensity.compact,
                             ),
                           if (createdAt != dashValue)
@@ -844,26 +845,49 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           if (query.isEmpty) {
             return true;
           }
+          final values = item.values;
           final id = item.id.toString().toLowerCase();
-          final title = _displayValue(item.values['title_model']).toLowerCase();
+          final title = _displayValue(
+            _firstValueByKeys(values, const ['title_model', 'title']),
+          ).toLowerCase();
           final description = _displayValue(
-            item.values['description'],
+            _firstValueByKeys(values, const [
+              'card_description',
+              'description',
+            ]),
           ).toLowerCase();
           final fullDescription = _displayValue(
-            item.values['full_description'],
+            _firstValueByKeys(values, const [
+              'full_description',
+              'fullDescription',
+            ]),
           ).toLowerCase();
           final imageUrl = _displayValue(
-            item.values['image_url'],
+            _firstValueByKeys(values, const [
+              'card_image_url',
+              'image_url',
+              'imageUrl',
+            ]),
           ).toLowerCase();
           final videoUrl = _displayValue(
-            item.values['video_url'],
+            _firstValueByKeys(values, const [
+              'video_link',
+              'video_url',
+              'videoUrl',
+            ]),
           ).toLowerCase();
+          final gallery = _extractUrlListByKeys(values, const [
+            'full_image_url',
+            'gallery_images',
+            'galleryImages',
+          ]).join(' ').toLowerCase();
           return id.contains(query) ||
               title.contains(query) ||
               description.contains(query) ||
               fullDescription.contains(query) ||
               imageUrl.contains(query) ||
-              videoUrl.contains(query);
+              videoUrl.contains(query) ||
+              gallery.contains(query);
         })
         .toList(growable: false);
 
@@ -881,7 +905,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 controller: searchController,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText: 'Search by title, description, image or video URL',
+                  hintText: 'Поиск по заголовку, описанию, фото или видео URL',
                 ),
                 onChanged: onQueryChanged,
               ),
@@ -901,7 +925,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         const SizedBox(height: 12),
         if (filtered.isEmpty)
           const Expanded(
-            child: EmptyState(message: 'No records for selected filters'),
+            child: EmptyState(message: 'По выбранным фильтрам записей нет'),
           )
         else
           Expanded(
@@ -909,18 +933,50 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               itemCount: filtered.length,
               itemBuilder: (context, index) {
                 final item = filtered[index];
-                final title = _displayValue(item.values['title_model']);
-                final description = _displayValue(item.values['description']);
+                final values = item.values;
+                final title = _displayValue(
+                  _firstValueByKeys(values, const ['title_model', 'title']),
+                );
+                final description = _displayValue(
+                  _firstValueByKeys(values, const [
+                    'card_description',
+                    'description',
+                  ]),
+                );
                 final fullDescription = _displayValue(
-                  item.values['full_description'],
+                  _firstValueByKeys(values, const [
+                    'full_description',
+                    'fullDescription',
+                  ]),
                 );
                 final previewText = description == dashValue
                     ? fullDescription
                     : description;
-                final createdAt = _displayValue(item.values['created_at']);
-                final imageUrlText = _displayValue(item.values['image_url']);
-                final imageUrl = _normalizedUrl(item.values['image_url']);
-                final videoUrl = _displayValue(item.values['video_url']);
+                final createdAt = _displayValue(values['created_at']);
+                final imageValue = _firstValueByKeys(values, const [
+                  'card_image_url',
+                  'image_url',
+                  'imageUrl',
+                ]);
+                final galleryUrls = _extractUrlListByKeys(values, const [
+                  'full_image_url',
+                  'gallery_images',
+                  'galleryImages',
+                ]);
+                final imageUrl =
+                    _normalizedUrl(imageValue) ??
+                    (galleryUrls.isNotEmpty ? galleryUrls.first : null);
+                final imageUrlText = _displayValue(
+                  imageValue ??
+                      (galleryUrls.isNotEmpty ? galleryUrls.first : null),
+                );
+                final videoUrl = _displayValue(
+                  _firstValueByKeys(values, const [
+                    'video_link',
+                    'video_url',
+                    'videoUrl',
+                  ]),
+                );
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -935,7 +991,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           runSpacing: 2,
                           children: [
                             IconButton(
-                              tooltip: 'Details',
+                              tooltip: 'Детали',
                               onPressed: () => _openDetailsDialog(
                                 entity,
                                 controller,
@@ -950,7 +1006,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               icon: const Icon(Icons.edit_outlined),
                             ),
                             IconButton(
-                              tooltip: 'Delete',
+                              tooltip: 'Удалить',
                               onPressed: () =>
                                   _confirmDelete(entity, controller, item.id),
                               icon: const Icon(Icons.delete_outline),
@@ -970,7 +1026,12 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                             ),
                           if (videoUrl != dashValue)
                             const Chip(
-                              label: Text('Video'),
+                              label: Text('Видео'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (galleryUrls.isNotEmpty)
+                            Chip(
+                              label: Text('Фото: ${galleryUrls.length}'),
                               visualDensity: VisualDensity.compact,
                             ),
                         ];
@@ -998,6 +1059,15 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               imageUrlText,
                               maxLines: compact ? 3 : 2,
                             ),
+                            if (galleryUrls.isNotEmpty)
+                              TextButton.icon(
+                                onPressed: () => _openImageGalleryDialog(
+                                  title: title,
+                                  urls: galleryUrls,
+                                ),
+                                icon: const Icon(Icons.photo_library_outlined),
+                                label: Text('Галерея (${galleryUrls.length})'),
+                              ),
                           ],
                         );
 
@@ -1106,7 +1176,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 controller: _consultationsSearchController,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText: 'Search by name, phone, service or status',
+                  hintText: 'Поиск по имени, телефону, услуге или статусу',
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -1130,7 +1200,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         const SizedBox(height: 12),
         if (filtered.isEmpty)
           const Expanded(
-            child: EmptyState(message: 'No records for selected filters'),
+            child: EmptyState(message: 'По выбранным фильтрам записей нет'),
           )
         else
           Expanded(
@@ -1164,7 +1234,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           runSpacing: 2,
                           children: [
                             IconButton(
-                              tooltip: 'Details',
+                              tooltip: 'Детали',
                               onPressed: () => _openDetailsDialog(
                                 entity,
                                 controller,
@@ -1179,7 +1249,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               icon: const Icon(Icons.edit_outlined),
                             ),
                             IconButton(
-                              tooltip: 'Delete',
+                              tooltip: 'Удалить',
                               onPressed: () =>
                                   _confirmDelete(entity, controller, item.id),
                               icon: const Icon(Icons.delete_outline),
@@ -1192,7 +1262,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              fullName == dashValue ? 'Consultation' : fullName,
+                              fullName == dashValue ? 'Консультация' : fullName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.titleMedium,
@@ -1219,24 +1289,24 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Phone: $phone',
+                              'Телефон: $phone',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              'Service: $serviceType',
+                              'Услуга: $serviceType',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             if (carModel != dashValue)
                               Text(
-                                'Car model: $carModel',
+                                'Модель авто: $carModel',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             if (preferredCallTime != dashValue)
                               Text(
-                                'Preferred call: $preferredCallTime',
+                                'Удобное время звонка: $preferredCallTime',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1312,10 +1382,26 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           final brand = _displayValue(item.values['brand']).toLowerCase();
           final model = _displayValue(item.values['model']).toLowerCase();
           final price = _displayValue(item.values['price']).toLowerCase();
+          final description = _displayValue(
+            item.values['description'],
+          ).toLowerCase();
+          final cardDescription = _displayValue(
+            item.values['card_description'],
+          ).toLowerCase();
+          final fullDescription = _displayValue(
+            item.values['full_description'],
+          ).toLowerCase();
+          final videoLink = _displayValue(
+            item.values['video_link'],
+          ).toLowerCase();
           return title.contains(query) ||
               brand.contains(query) ||
               model.contains(query) ||
-              price.contains(query);
+              price.contains(query) ||
+              description.contains(query) ||
+              cardDescription.contains(query) ||
+              fullDescription.contains(query) ||
+              videoLink.contains(query);
         })
         .toList(growable: false);
 
@@ -1333,7 +1419,8 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 controller: _tuningSearchController,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText: 'Поиск по бренду, модели, заголовку, цене',
+                  hintText:
+                      'Поиск по бренду, модели, заголовку, описанию, цене',
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -1361,130 +1448,235 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           )
         else
           Expanded(
-            child: GridView.builder(
-              itemCount: filtered.length,
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 360,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.88,
-              ),
-              itemBuilder: (context, index) {
-                final item = filtered[index];
-                final title = _displayValue(item.values['title']);
-                final brand = _displayValue(item.values['brand']);
-                final model = _displayValue(item.values['model']);
-                final price = _displayValue(item.values['price']);
-                final cardImageUrl = _normalizedUrl(
-                  item.values['card_image_url'],
-                );
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = 12.0;
+                const minTileWidth = 270.0;
+                const maxColumns = 4;
 
-                return InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => _openDetailsDialog(entity, controller, item.id),
-                  child: Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AspectRatio(
-                          aspectRatio: 21 / 9,
-                          child: _TuningCardImage(url: cardImageUrl),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '$brand • $model',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Цена: $price',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
+                var crossAxisCount =
+                    ((constraints.maxWidth + spacing) /
+                            (minTileWidth + spacing))
+                        .floor();
+                if (crossAxisCount < 1) {
+                  crossAxisCount = 1;
+                }
+                if (crossAxisCount > maxColumns) {
+                  crossAxisCount = maxColumns;
+                }
+
+                final tileWidth =
+                    (constraints.maxWidth - (crossAxisCount - 1) * spacing) /
+                    crossAxisCount;
+                final childAspectRatio = _tuningCardAspectRatio(tileWidth);
+
+                return GridView.builder(
+                  itemCount: filtered.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: spacing,
+                    crossAxisSpacing: spacing,
+                    childAspectRatio: childAspectRatio,
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = filtered[index];
+                    final title = _displayValue(
+                      _firstValueByKeys(item.values, const [
+                        'title',
+                        'description',
+                        'card_description',
+                      ]),
+                    );
+                    final brand = _displayValue(item.values['brand']);
+                    final model = _displayValue(item.values['model']);
+                    final price = _displayValue(item.values['price']);
+                    final description = _displayValue(
+                      item.values['description'],
+                    );
+                    final cardDescription = _displayValue(
+                      item.values['card_description'],
+                    );
+                    final fullDescription = _displayValue(
+                      item.values['full_description'],
+                    );
+                    final previewText = cardDescription != dashValue
+                        ? cardDescription
+                        : (description != dashValue
+                              ? description
+                              : fullDescription);
+                    final cardImageUrl = _normalizedUrl(
+                      item.values['card_image_url'],
+                    );
+                    final videoImageUrl = _normalizedUrl(
+                      item.values['video_image_url'],
+                    );
+                    final videoLink = _displayValue(item.values['video_link']);
+                    final galleryUrls = _extractUrlList(
+                      item.values['full_image_url'],
+                    );
+                    final createdAt = _displayValue(item.values['created_at']);
+                    final updatedAt = _displayValue(item.values['updated_at']);
+                    final metaParts = <String>[
+                      if (galleryUrls.isNotEmpty) 'Фото: ${galleryUrls.length}',
+                      if (videoLink != dashValue || videoImageUrl != null)
+                        'Видео',
+                      if (createdAt != dashValue) 'Создано: $createdAt',
+                      if (updatedAt != dashValue) 'Обновлено: $updatedAt',
+                    ];
+                    final metaLine = metaParts.join(' • ');
+
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () =>
+                          _openDetailsDialog(entity, controller, item.id),
+                      child: Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AspectRatio(
+                              aspectRatio: 21 / 9,
+                              child: _TuningCardImage(url: cardImageUrl),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    IconButton(
-                                      tooltip: 'Редактировать',
-                                      onPressed: () => _openEditDialog(
-                                        entity,
-                                        controller,
-                                        item,
-                                      ),
-                                      visualDensity: VisualDensity.compact,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 36,
-                                        minHeight: 36,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      iconSize: 20,
-                                      icon: const Icon(Icons.edit_outlined),
+                                    Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
                                     ),
-                                    IconButton(
-                                      tooltip: 'Удалить',
-                                      onPressed: () => _confirmDelete(
-                                        entity,
-                                        controller,
-                                        item.id,
-                                      ),
-                                      visualDensity: VisualDensity.compact,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 36,
-                                        minHeight: 36,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      iconSize: 20,
-                                      icon: const Icon(Icons.delete_outline),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '$brand / $model',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
                                     ),
-                                    const Spacer(),
-                                    TextButton(
-                                      onPressed: () => _openDetailsDialog(
-                                        entity,
-                                        controller,
-                                        item.id,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Цена: $price',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (metaLine.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        metaLine,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
-                                      style: TextButton.styleFrom(
-                                        minimumSize: const Size(0, 34),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
+                                    ],
+                                    if (previewText != dashValue)
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 6,
+                                          ),
+                                          child: Text(
+                                            previewText,
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
+                                          ),
                                         ),
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: const Text('Подробнее'),
+                                      )
+                                    else
+                                      const Spacer(),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Редактировать',
+                                          onPressed: () => _openEditDialog(
+                                            entity,
+                                            controller,
+                                            item,
+                                          ),
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 20,
+                                          icon: const Icon(Icons.edit_outlined),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Удалить',
+                                          onPressed: () => _confirmDelete(
+                                            entity,
+                                            controller,
+                                            item.id,
+                                          ),
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 20,
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        TextButton(
+                                          onPressed: () => _openDetailsDialog(
+                                            entity,
+                                            controller,
+                                            item.id,
+                                          ),
+                                          style: TextButton.styleFrom(
+                                            minimumSize: const Size(0, 34),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                            ),
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ),
+                                          child: const Text('Подробнее'),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
           ),
       ],
     );
+  }
+
+  double _tuningCardAspectRatio(double tileWidth) {
+    if (tileWidth < 300) {
+      return 0.78;
+    }
+    if (tileWidth < 360) {
+      return 0.86;
+    }
+    return 0.92;
   }
 
   Widget _buildServiceOfferingsList({
@@ -1535,8 +1727,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 controller: _serviceOfferingsSearchController,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText:
-                      'Search by service, title, description or image URL',
+                  hintText: 'Поиск по услуге, заголовку, описанию или фото',
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -1560,7 +1751,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         const SizedBox(height: 12),
         if (filtered.isEmpty)
           const Expanded(
-            child: EmptyState(message: 'No records for selected filters'),
+            child: EmptyState(message: 'По выбранным фильтрам записей нет'),
           )
         else
           Expanded(
@@ -1595,7 +1786,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           runSpacing: 2,
                           children: [
                             IconButton(
-                              tooltip: 'Details',
+                              tooltip: 'Детали',
                               onPressed: () => _openDetailsDialog(
                                 entity,
                                 controller,
@@ -1610,7 +1801,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               icon: const Icon(Icons.edit_outlined),
                             ),
                             IconButton(
-                              tooltip: 'Delete',
+                              tooltip: 'Удалить',
                               onPressed: () =>
                                   _confirmDelete(entity, controller, item.id),
                               icon: const Icon(Icons.delete_outline),
@@ -1630,12 +1821,12 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                             ),
                           if (priceText != dashValue)
                             Chip(
-                              label: Text('Price: $priceText'),
+                              label: Text('Цена: $priceText'),
                               visualDensity: VisualDensity.compact,
                             ),
                           if (position != dashValue)
                             Chip(
-                              label: Text('Pos: $position'),
+                              label: Text('Позиция: $position'),
                               visualDensity: VisualDensity.compact,
                             ),
                           if (createdAt != dashValue)
@@ -1644,7 +1835,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               visualDensity: VisualDensity.compact,
                             ),
                           Chip(
-                            label: Text('Images: ${galleryUrls.length}'),
+                            label: Text('Фото: ${galleryUrls.length}'),
                             visualDensity: VisualDensity.compact,
                           ),
                         ];
@@ -1704,7 +1895,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                                         urls: galleryUrls,
                                       ),
                                 icon: const Icon(Icons.photo_library_outlined),
-                                label: const Text('View images'),
+                                label: const Text('Открыть галерею'),
                               ),
                             ),
                           ],
@@ -1785,8 +1976,10 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     try {
       await controller.create(payload);
       _showMessage('Запись создана');
+    } on ApiError catch (error) {
+      _showMessage(error.message);
     } catch (_) {
-      _showMessage('Не удалось создать запись');
+      _showMessage('Не удалось создать запись. Проверьте заполнение полей.');
     }
   }
 
@@ -1800,7 +1993,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       builder: (context) => _EntityFormDialog(
         title: 'Редактировать запись',
         entity: entity,
-        initialValues: item.values,
+        initialValues: _normalizedFormValues(entity, item.values),
       ),
     );
     if (payload == null) {
@@ -1810,9 +2003,56 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     try {
       await controller.update(item.id, payload);
       _showMessage('Запись обновлена');
+    } on ApiError catch (error) {
+      _showMessage(error.message);
     } catch (_) {
-      _showMessage('Не удалось обновить запись');
+      _showMessage('Не удалось обновить запись. Проверьте заполнение полей.');
     }
+  }
+
+  Map<String, dynamic> _normalizedFormValues(
+    AdminEntityDefinition entity,
+    Map<String, dynamic> values,
+  ) {
+    final normalized = Map<String, dynamic>.from(values);
+
+    dynamic pick(List<String> keys) {
+      for (final key in keys) {
+        if (!normalized.containsKey(key)) {
+          continue;
+        }
+        final value = normalized[key];
+        if (value == null) {
+          continue;
+        }
+        if (value is String && value.trim().isEmpty) {
+          continue;
+        }
+        return value;
+      }
+      return null;
+    }
+
+    if (entity.key == 'tuning') {
+      normalized['description'] ??= pick(const ['title', 'card_description']);
+      return normalized;
+    }
+
+    if (entity.key != 'work_post') {
+      return normalized;
+    }
+
+    normalized['title_model'] ??= pick(const ['title']);
+    normalized['card_description'] ??= pick(const ['description']);
+    normalized['full_description'] ??= pick(const ['fullDescription']);
+    normalized['card_image_url'] ??= pick(const ['image_url', 'imageUrl']);
+    normalized['video_link'] ??= pick(const ['video_url', 'videoUrl']);
+    normalized['work_list'] ??= pick(const ['performedWorks']);
+    normalized['full_image_url'] ??= pick(const [
+      'gallery_images',
+      'galleryImages',
+    ]);
+    return normalized;
   }
 
   Future<void> _confirmDelete(
@@ -1949,7 +2189,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
 
     if (value is String) {
       final trimmed = value.trim();
-      return trimmed.isEmpty ? dashValue : trimmed;
+      if (trimmed.isEmpty) {
+        return dashValue;
+      }
+      final formattedDate = _tryFormatDateTimeString(trimmed);
+      return formattedDate ?? trimmed;
     }
 
     if (value is List) {
@@ -1969,6 +2213,20 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     return value.toString();
   }
 
+  String? _tryFormatDateTimeString(String value) {
+    final looksLikeDateTime = RegExp(
+      r'^\d{4}-\d{2}-\d{2}(?:[T ][^ ]+)?(?:Z|[+-]\d{2}:\d{2})?$',
+    ).hasMatch(value);
+    if (!looksLikeDateTime) {
+      return null;
+    }
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) {
+      return null;
+    }
+    return formatDateTimeOrDash(parsed);
+  }
+
   Object? _sortValue(dynamic value) {
     if (value == null) {
       return null;
@@ -1977,6 +2235,36 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       return value;
     }
     return _displayValue(value);
+  }
+
+  dynamic _firstValueByKeys(Map<String, dynamic> values, List<String> keys) {
+    for (final key in keys) {
+      if (!values.containsKey(key)) {
+        continue;
+      }
+      final value = values[key];
+      if (value == null) {
+        continue;
+      }
+      if (value is String && value.trim().isEmpty) {
+        continue;
+      }
+      return value;
+    }
+    return null;
+  }
+
+  List<String> _extractUrlListByKeys(
+    Map<String, dynamic> values,
+    List<String> keys,
+  ) {
+    final urls = <String>{};
+    for (final key in keys) {
+      for (final url in _extractUrlList(values[key])) {
+        urls.add(url);
+      }
+    }
+    return urls.toList(growable: false);
   }
 
   String? _normalizedUrl(dynamic value) {
@@ -2124,7 +2412,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     required List<String> urls,
   }) async {
     if (urls.isEmpty) {
-      _showMessage('No images in gallery');
+      _showMessage('В галерее нет изображений');
       return;
     }
 
@@ -2142,7 +2430,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Gallery: $title',
+                    'Галерея: $title',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium,
@@ -2198,7 +2486,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                     alignment: Alignment.centerRight,
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
+                      child: const Text('Закрыть'),
                     ),
                   ),
                 ],
@@ -2223,7 +2511,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) => const Padding(
                   padding: EdgeInsets.all(24),
-                  child: Text('Failed to load image'),
+                  child: Text('Не удалось загрузить изображение'),
                 ),
               ),
             ),
@@ -2408,10 +2696,17 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
 
     for (final field in widget.entity.formFields) {
       if (field.type == AdminFieldType.array) {
-        final values = _initialArrayValues(widget.initialValues?[field.key]);
-        _arrayControllers[field.key] = values
+        final values = _initialArrayValues(
+          field,
+          widget.initialValues?[field.key],
+        );
+        final items = values
             .map((value) => TextEditingController(text: value))
             .toList(growable: true);
+        if (_isJsonArrayField(field) && items.isEmpty) {
+          items.add(TextEditingController());
+        }
+        _arrayControllers[field.key] = items;
       }
     }
   }
@@ -2478,12 +2773,11 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
       if (field.type != AdminFieldType.array) {
         continue;
       }
-      final values = _arrayControllers[field.key]!
-          .map((controller) => controller.text.trim())
-          .where((value) => value.isNotEmpty)
-          .toList(growable: false);
+      final values = _collectArrayValues(field);
       if (field.required && values.isEmpty) {
-        _arrayErrors[field.key] = 'Добавьте минимум один URL';
+        _arrayErrors[field.key] = _isJsonArrayField(field)
+            ? 'Добавьте минимум один пункт'
+            : 'Добавьте минимум одно значение';
         hasArrayError = true;
       }
     }
@@ -2496,11 +2790,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     final result = <String, dynamic>{};
     for (final field in widget.entity.formFields) {
       if (field.type == AdminFieldType.array) {
-        final values = _arrayControllers[field.key]!
-            .map((controller) => controller.text.trim())
-            .where((value) => value.isNotEmpty)
-            .toList(growable: false);
-        result[field.key] = values;
+        result[field.key] = _collectArrayValues(field);
       } else {
         final raw = _controllers[field.key]!.text.trim();
         if (raw.isEmpty) {
@@ -2538,7 +2828,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
       } catch (_) {
         return field.type == AdminFieldType.array
             ? 'Некорректный формат массива'
-            : 'Некорректный JSON';
+            : 'Некорректный формат данных';
       }
     }
 
@@ -2563,17 +2853,14 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
             maxLines: isLongText ? 6 : 1,
             decoration: InputDecoration(
               labelText: field.required ? '${field.label} *' : field.label,
-              helperText: switch (field.type) {
-                AdminFieldType.json => 'Введите JSON объект/массив',
-                _ => null,
-              },
+              helperText: _fieldHelperText(field),
             ),
             validator: (value) => _validateField(field, value),
           ),
           if (uploadable) ...[
             const SizedBox(height: 8),
             StorageUploadButton(
-              label: 'Загрузить и вставить URL',
+              label: 'Загрузить изображение',
               folder: _suggestedFolder(field),
               onUploaded: (result) {
                 controller.text = result.publicUrl;
@@ -2586,9 +2873,32 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     );
   }
 
+  String? _fieldHelperText(AdminFieldDefinition field) {
+    if (field.type == AdminFieldType.json) {
+      return 'Введите данные';
+    }
+
+    if (widget.entity.key == 'tuning') {
+      switch (field.key) {
+        case 'title':
+          return 'Название проекта';
+        case 'card_description':
+          return 'Текст для карточки в списке';
+        case 'full_description':
+          return 'Полное описание для детальной страницы';
+        default:
+          break;
+      }
+    }
+
+    return null;
+  }
+
   Widget _buildArrayManager(AdminFieldDefinition field) {
     final items = _arrayControllers[field.key]!;
     final uploadable = _isArrayUploadTarget(field);
+    final jsonArrayField = _isJsonArrayField(field);
+    final hideManualAddButton = uploadable && !jsonArrayField;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2606,11 +2916,14 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
                   field.required ? '${field.label} *' : field.label,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                // OutlinedButton.icon(
-                //   onPressed: () => _addArrayItem(field.key),
-                //   icon: const Icon(Icons.add),
-                //   label: const Text('Добавить URL'),
-                // ),
+                if (!hideManualAddButton)
+                  OutlinedButton.icon(
+                    onPressed: () => _addArrayItem(field.key),
+                    icon: const Icon(Icons.add),
+                    label: Text(
+                      jsonArrayField ? 'Добавить пункт' : 'Добавить значение',
+                    ),
+                  ),
                 if (uploadable)
                   StorageUploadButton(
                     label: 'Загрузить и добавить',
@@ -2628,6 +2941,11 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
                 style: const TextStyle(color: Colors.redAccent),
               ),
             ],
+            if (jsonArrayField)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text('Добавляйте пункты работ по одному.'),
+              ),
             const SizedBox(height: 8),
             if (items.isEmpty)
               const Text('Список пуст')
@@ -2643,8 +2961,11 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
                         Expanded(
                           child: TextField(
                             controller: controller,
+                            minLines: jsonArrayField ? 2 : 1,
+                            maxLines: jsonArrayField ? 6 : 1,
                             decoration: InputDecoration(
-                              labelText: 'URL ${index + 1}',
+                              labelText: _arrayItemLabel(field, index),
+                              hintText: _arrayHintText(field),
                             ),
                           ),
                         ),
@@ -2679,6 +3000,53 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
         ),
       ),
     );
+  }
+
+  List<dynamic> _collectArrayValues(AdminFieldDefinition field) {
+    final values = _arrayControllers[field.key]!
+        .map((controller) => controller.text.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+
+    if (!_isJsonArrayField(field)) {
+      return values;
+    }
+
+    return values
+        .map((value) => _parseArrayItemValue(field, value))
+        .toList(growable: false);
+  }
+
+  dynamic _parseArrayItemValue(AdminFieldDefinition field, String raw) {
+    if (!_isJsonArrayField(field)) {
+      return raw;
+    }
+    final parsed = _tryJsonDecode(raw);
+    return parsed ?? raw;
+  }
+
+  bool _isJsonArrayField(AdminFieldDefinition field) {
+    return widget.entity.key == 'work_post' && field.key == 'work_list';
+  }
+
+  String _arrayItemLabel(AdminFieldDefinition field, int index) {
+    if (_isJsonArrayField(field)) {
+      return 'Пункт ${index + 1}';
+    }
+    if (_isArrayUploadTarget(field)) {
+      return 'Изображение ${index + 1}';
+    }
+    return 'Значение ${index + 1}';
+  }
+
+  String? _arrayHintText(AdminFieldDefinition field) {
+    if (_isJsonArrayField(field)) {
+      return 'Например: Полировка кузова';
+    }
+    if (_isArrayUploadTarget(field)) {
+      return 'При необходимости можно вставить ссылку на изображение';
+    }
+    return null;
   }
 
   void _addArrayItem(String fieldKey, {String initialValue = ''}) {
@@ -2730,13 +3098,22 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     if (entityKey == 'tuning' && fieldKey == 'card_image_url') {
       return 'tuning/card';
     }
+    if (entityKey == 'tuning' && fieldKey == 'video_image_url') {
+      return 'tuning/video';
+    }
     if (entityKey == 'tuning' && fieldKey == 'full_image_url') {
       return 'tuning/full';
     }
     if (entityKey == 'service_offerings' && fieldKey == 'gallery_images') {
       return 'service_offerings/gallery';
     }
-    if (entityKey == 'work_post' && fieldKey == 'gallery_images') {
+    if (entityKey == 'work_post' && fieldKey == 'card_image_url') {
+      return 'work_post/card';
+    }
+    if (entityKey == 'work_post' && fieldKey == 'video_image_url') {
+      return 'work_post/video';
+    }
+    if (entityKey == 'work_post' && fieldKey == 'full_image_url') {
       return 'work_post/gallery';
     }
     return entityKey;
@@ -2803,14 +3180,18 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     return value.toString();
   }
 
-  List<String> _initialArrayValues(dynamic value) {
+  List<String> _initialArrayValues(AdminFieldDefinition field, dynamic value) {
     if (value is List) {
-      return value.map((item) => item.toString()).toList(growable: false);
+      return value
+          .map((item) => _stringifyArrayItem(field, item))
+          .toList(growable: false);
     }
     if (value is String) {
       final parsed = _tryJsonDecode(value);
       if (parsed is List) {
-        return parsed.map((item) => item.toString()).toList(growable: false);
+        return parsed
+            .map((item) => _stringifyArrayItem(field, item))
+            .toList(growable: false);
       }
       return value
           .split(RegExp(r'[\n,]'))
@@ -2820,6 +3201,13 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     }
     return const <String>[];
   }
+
+  String _stringifyArrayItem(AdminFieldDefinition field, dynamic item) {
+    if (_isJsonArrayField(field) && (item is Map || item is List)) {
+      return const JsonEncoder.withIndent('  ').convert(item);
+    }
+    return item.toString();
+  }
 }
 
 const _singleUploadTargets = <String>{
@@ -2827,10 +3215,13 @@ const _singleUploadTargets = <String>{
   'partners.logo_url',
   'portfolio_items.image_url',
   'tuning.card_image_url',
+  'tuning.video_image_url',
+  'work_post.card_image_url',
+  'work_post.video_image_url',
 };
 
 const _arrayUploadTargets = <String>{
   'tuning.full_image_url',
   'service_offerings.gallery_images',
-  'work_post.gallery_images',
+  'work_post.full_image_url',
 };

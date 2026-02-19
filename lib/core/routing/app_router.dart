@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../features/admin/domain/admin_entity_registry.dart';
 import '../../features/admin/ui/admin_entity_page.dart';
 import '../../features/dashboard/ui/dashboard_page.dart';
-import '../../features/storage/ui/storage_page.dart';
 import '../ui/app_shell.dart';
 import 'app_route.dart';
 
@@ -22,16 +21,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.dashboard,
             builder: (context, state) => const DashboardPage(),
-          ),
-          GoRoute(
-            path: AppRoutes.storage,
-            redirect: (context, state) {
-              if (AppRoutes.storageEnabled) {
-                return null;
-              }
-              return AppRoutes.dashboard;
-            },
-            builder: (context, state) => const StoragePage(),
           ),
           GoRoute(
             path: '${AppRoutes.entitiesPrefix}/:entityKey',

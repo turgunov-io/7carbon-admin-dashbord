@@ -23,37 +23,87 @@ class StorageService {
     bool upsert = true,
     ProgressCallback? onSendProgress,
   }) async {
-    try {
-      final multipart = await _toMultipartFile(file, filename: filename);
-      final formData = FormData.fromMap({
-        'file': multipart,
-        if (bucket != null && bucket.trim().isNotEmpty) 'bucket': bucket.trim(),
-        if (folder != null && folder.trim().isNotEmpty) 'folder': folder.trim(),
-        if (filename != null && filename.trim().isNotEmpty)
-          'filename': filename.trim(),
-        'upsert': upsert.toString(),
-      });
+    const maxAttempts = 3;
 
-      final response = await _dio.post<dynamic>(
-        '/admin/storage/upload',
-        data: formData,
-        options: Options(contentType: 'multipart/form-data'),
-        onSendProgress: onSendProgress,
-      );
-      final envelope = _asMap(response.data);
-      final data = _unwrapSuccessData(envelope);
-      return StorageUploadResult.fromJson(_asMap(data));
-    } on DioException catch (error) {
-      throw ApiError.fromDioException(error);
-    } on ApiError {
-      rethrow;
-    } catch (error) {
-      throw ApiError(
-        type: ApiErrorType.unknown,
-        message: 'Не удалось загрузить файл: $error',
-        details: error,
-      );
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final multipart = await _toMultipartFile(file, filename: filename);
+        final formData = FormData.fromMap({
+          'file': multipart,
+          if (bucket != null && bucket.trim().isNotEmpty)
+            'bucket': bucket.trim(),
+          if (folder != null && folder.trim().isNotEmpty)
+            'folder': folder.trim(),
+          if (filename != null && filename.trim().isNotEmpty)
+            'filename': filename.trim(),
+          'upsert': upsert.toString(),
+        });
+
+        final response = await _dio.post<dynamic>(
+          '/admin/storage/upload',
+          data: formData,
+          options: Options(
+            contentType: 'multipart/form-data',
+            connectTimeout: const Duration(seconds: 30),
+            sendTimeout: kIsWeb ? null : const Duration(minutes: 2),
+            receiveTimeout: const Duration(minutes: 2),
+          ),
+          onSendProgress: onSendProgress,
+        );
+        final envelope = _asMap(response.data);
+        final data = _unwrapSuccessData(envelope);
+        return StorageUploadResult.fromJson(_asMap(data));
+      } on DioException catch (error) {
+        final statusCode = error.response?.statusCode;
+        if (statusCode == 413) {
+          throw const ApiError(
+            type: ApiErrorType.badRequest,
+            statusCode: 413,
+            message:
+                'Файл слишком большой для сервера. Уменьшите размер изображения и попробуйте снова.',
+          );
+        }
+        if (statusCode == 415) {
+          throw const ApiError(
+            type: ApiErrorType.badRequest,
+            statusCode: 415,
+            message:
+                'Сервер не принимает этот формат файла. Попробуйте другой формат изображения.',
+          );
+        }
+
+        final shouldRetry = _isRetryableUploadError(error);
+        if (shouldRetry && attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
+          continue;
+        }
+
+        if (error.type == DioExceptionType.connectionError) {
+          final fileKb = (file.size / 1024).toStringAsFixed(0);
+          throw ApiError(
+            type: ApiErrorType.network,
+            message:
+                'Сетевая ошибка при загрузке файла ($fileKb КБ). Частая причина: нестабильная сеть, CORS или ограничение размера файла на сервере.',
+            details: error,
+          );
+        }
+
+        throw ApiError.fromDioException(error);
+      } on ApiError {
+        rethrow;
+      } catch (error) {
+        throw ApiError(
+          type: ApiErrorType.unknown,
+          message: 'Не удалось загрузить файл: $error',
+          details: error,
+        );
+      }
     }
+
+    throw const ApiError(
+      type: ApiErrorType.unknown,
+      message: 'Не удалось загрузить файл после нескольких попыток.',
+    );
   }
 
   Future<StorageFileListResult> listFiles({
@@ -499,6 +549,23 @@ class StorageService {
       }
     }
     return false;
+  }
+
+  bool _isRetryableUploadError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionError:
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return true;
+      case DioExceptionType.badResponse:
+        final statusCode = error.response?.statusCode ?? 0;
+        return statusCode == 408 || statusCode == 429 || statusCode >= 500;
+      case DioExceptionType.badCertificate:
+      case DioExceptionType.cancel:
+      case DioExceptionType.unknown:
+        return false;
+    }
   }
 
   Future<String?> _guessPublicBaseUrl() async {

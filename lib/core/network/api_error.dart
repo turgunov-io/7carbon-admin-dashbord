@@ -146,32 +146,40 @@ class ApiError implements Exception {
   }
 
   static String? _extractMessage(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      final message = data['message'];
-      if (message is String && message.trim().isNotEmpty) {
-        return message;
-      }
+    if (data is! Map) {
+      return null;
+    }
 
-      final errors = data['errors'];
-      if (errors is Map<String, dynamic> && errors.isNotEmpty) {
-        final buffer = <String>[];
-        for (final entry in errors.entries) {
-          final value = entry.value;
-          if (value is List) {
-            final joined = value.map((e) => e.toString()).join(', ');
-            if (joined.isNotEmpty) {
-              buffer.add('${entry.key}: $joined');
-            }
-          } else if (value != null) {
-            buffer.add('${entry.key}: $value');
+    final map = Map<String, dynamic>.from(data);
+    final message = map['message'];
+    final baseMessage = message is String && message.trim().isNotEmpty
+        ? message.trim()
+        : null;
+
+    final errors = map['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final normalizedErrors = Map<String, dynamic>.from(errors);
+      final buffer = <String>[];
+      for (final entry in normalizedErrors.entries) {
+        final value = entry.value;
+        if (value is List) {
+          final joined = value.map((e) => e.toString()).join(', ');
+          if (joined.isNotEmpty) {
+            buffer.add('${entry.key}: $joined');
           }
+        } else if (value != null) {
+          buffer.add('${entry.key}: $value');
         }
-        if (buffer.isNotEmpty) {
-          return buffer.join(' | ');
+      }
+      if (buffer.isNotEmpty) {
+        if (baseMessage != null) {
+          return '$baseMessage: ${buffer.join(' | ')}';
         }
+        return buffer.join(' | ');
       }
     }
-    return null;
+
+    return baseMessage;
   }
 
   @override
