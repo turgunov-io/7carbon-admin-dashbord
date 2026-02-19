@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_error.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/widgets/entity_table.dart';
 import '../../../core/ui/widgets/formatters.dart';
 import '../../../core/ui/widgets/section_container.dart';
@@ -243,7 +244,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
             constraints: const BoxConstraints(maxWidth: 420),
             child: Text(
               state.errorMessage!,
-              style: const TextStyle(color: Colors.redAccent),
+              style: const TextStyle(color: AppColors.errorAccent),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -302,7 +303,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(
                   state.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -491,7 +492,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(
                   state.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -670,7 +671,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(
                   state.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -915,7 +916,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(
                   state.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1190,7 +1191,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(
                   state.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1434,7 +1435,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(
                   state.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1741,7 +1742,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(
                   state.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2938,7 +2939,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
               const SizedBox(height: 6),
               Text(
                 _arrayErrors[field.key]!,
-                style: const TextStyle(color: Colors.redAccent),
+                style: const TextStyle(color: AppColors.errorAccent),
               ),
             ],
             if (jsonArrayField)

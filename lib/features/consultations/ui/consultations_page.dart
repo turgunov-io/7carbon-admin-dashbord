@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/bloc/request_state.dart';
 import '../../../core/di/app_dependencies.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/widgets/entity_table.dart';
 import '../../../core/ui/widgets/formatters.dart';
 import '../../../core/ui/widgets/section_container.dart';
@@ -274,7 +275,7 @@ class _ConsultationsViewState extends State<_ConsultationsView> {
                 const SizedBox(height: 10),
                 Text(
                   state.createError!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.errorAccent),
                 ),
               ],
               const SizedBox(height: 14),
@@ -294,7 +295,7 @@ class _ConsultationsViewState extends State<_ConsultationsView> {
                 'Ошибки сервера 400/422 будут показаны выше.',
                 style: Theme.of(
                   context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                ).textTheme.bodySmall?.copyWith(color: AppColors.black54),
               ),
             ],
           ),
@@ -544,9 +545,9 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = switch (status) {
-      ConsultationStatus.newRequest => Colors.amber.shade100,
-      ConsultationStatus.inProgress => Colors.blue.shade100,
-      ConsultationStatus.completed => Colors.green.shade100,
+      ConsultationStatus.newRequest => AppColors.warning100,
+      ConsultationStatus.inProgress => AppColors.info100,
+      ConsultationStatus.completed => AppColors.success100,
     };
 
     return Chip(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
+
 class SectionContainer extends StatelessWidget {
   const SectionContainer({
     required this.title,
@@ -43,7 +45,7 @@ class SectionContainer extends StatelessWidget {
                   subtitle!,
                   style: Theme.of(
                     context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.black54),
                 ),
               ],
               const SizedBox(height: 16),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
+
 class LoadingState extends StatelessWidget {
   const LoadingState({super.key});
 
@@ -48,7 +50,7 @@ class ErrorState extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.error_outline,
-                  color: Colors.redAccent,
+                  color: AppColors.errorAccent,
                   size: 42,
                 ),
                 const SizedBox(height: 10),

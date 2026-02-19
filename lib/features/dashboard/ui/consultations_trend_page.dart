@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_route.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/widgets/state_views.dart';
 import '../application/dashboard_provider.dart';
 
@@ -61,7 +62,7 @@ class ConsultationsTrendPage extends ConsumerWidget {
                 'Помесячная динамика за последние 12 месяцев',
                 style: Theme.of(
                   context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.black54),
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -82,8 +83,8 @@ class ConsultationsTrendPage extends ConsumerWidget {
                     final isGrowth = trend.delta >= 0;
                     final deltaPrefix = isGrowth ? '+' : '';
                     final deltaColor = isGrowth
-                        ? Colors.green.shade700
-                        : Colors.red.shade700;
+                        ? AppColors.success700
+                        : AppColors.error700;
 
                     final maxCount = trend.monthlyPoints.fold<int>(1, (
                       max,

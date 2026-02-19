@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
 import 'formatters.dart';
 
 class ImagePreview extends StatelessWidget {
@@ -32,7 +33,7 @@ class ImagePreview extends StatelessWidget {
                 return child;
               }
               return ColoredBox(
-                color: Colors.black12,
+                color: AppColors.black12,
                 child: const Center(
                   child: SizedBox(
                     width: 18,
@@ -53,7 +54,7 @@ class ImagePreview extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.black12,
+        color: AppColors.black12,
         borderRadius: BorderRadius.circular(8),
       ),
       child: const Icon(Icons.image_not_supported_outlined),

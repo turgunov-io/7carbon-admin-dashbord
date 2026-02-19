@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_route.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/widgets/state_views.dart';
 import '../../admin/domain/admin_entity_registry.dart';
 import '../application/dashboard_provider.dart';
@@ -32,7 +33,7 @@ class DashboardPage extends ConsumerWidget {
                 'Сводка по количеству записей и быстрые действия',
                 style: Theme.of(
                   context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.black54),
               ),
               const SizedBox(height: 16),
               Wrap(
@@ -246,7 +247,7 @@ class _ConsultationTrendCard extends StatelessWidget {
 
     final isGrowth = trend.delta >= 0;
     final deltaPrefix = isGrowth ? '+' : '';
-    final deltaColor = isGrowth ? Colors.green.shade700 : Colors.red.shade700;
+    final deltaColor = isGrowth ? AppColors.success700 : AppColors.error700;
 
     return SizedBox(
       height: 280,
@@ -309,7 +310,7 @@ class _ConsultationTrendCard extends StatelessWidget {
                   'Нажмите на график для подробного отчета',
                   style: Theme.of(
                     context,
-                  ).textTheme.labelMedium?.copyWith(color: Colors.black54),
+                  ).textTheme.labelMedium?.copyWith(color: AppColors.black54),
                 ),
               ],
             ),

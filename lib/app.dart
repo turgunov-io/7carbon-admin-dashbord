@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/routing/app_router.dart' show appRouterProvider;
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_mode_provider.dart';
 
 class CarbonAdminApp extends ConsumerWidget {
   const CarbonAdminApp({super.key});
@@ -10,9 +11,12 @@ class CarbonAdminApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'Carbon Admin',
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

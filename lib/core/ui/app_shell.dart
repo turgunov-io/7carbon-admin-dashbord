@@ -1,22 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../routing/app_route.dart';
+import '../theme/app_colors.dart';
+import '../theme/theme_mode_provider.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({required this.location, required this.child, super.key});
 
   final String location;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final width = MediaQuery.sizeOf(context).width;
     final selectedIndex = _selectedIndex(location);
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
 
     if (width < 960) {
       return Scaffold(
         appBar: AppBar(title: Text(AppRoutes.titleByLocation(location))),
+        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+        floatingActionButton: _ThemeToggleButton(
+          isDark: isDark,
+          onTap: () => _toggleTheme(ref, isDark),
+        ),
         drawer: Drawer(
           child: SafeArea(
             child: Column(
@@ -60,6 +70,11 @@ class AppShell extends StatelessWidget {
 
     final railExtended = width >= 1360;
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButton: _ThemeToggleButton(
+        isDark: isDark,
+        onTap: () => _toggleTheme(ref, isDark),
+      ),
       body: Row(
         children: [
           SafeArea(
@@ -119,5 +134,30 @@ class AppShell extends StatelessWidget {
       return;
     }
     context.go(item.path);
+  }
+
+  void _toggleTheme(WidgetRef ref, bool isDark) {
+    ref.read(themeModeProvider.notifier).state = isDark
+        ? ThemeMode.light
+        : ThemeMode.dark;
+  }
+}
+
+class _ThemeToggleButton extends StatelessWidget {
+  const _ThemeToggleButton({required this.isDark, required this.onTap});
+
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.extended(
+      heroTag: 'theme_toggle_fab',
+      onPressed: onTap,
+      icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+      label: Text(isDark ? 'Светлая тема' : 'Темная тема'),
+      backgroundColor: isDark ? AppColors.surfaceDarker : AppColors.white,
+      foregroundColor: isDark ? AppColors.white : AppColors.black,
+    );
   }
 }
