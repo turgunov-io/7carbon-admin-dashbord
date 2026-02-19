@@ -24,6 +24,7 @@ class AppRoutes {
   const AppRoutes._();
 
   static const dashboard = '/dashboard';
+  static const dashboardConsultationsTrend = '$dashboard/consultations-trend';
   static const entitiesPrefix = '/entities';
 
   static String entity(String key) => '$entitiesPrefix/$key';
