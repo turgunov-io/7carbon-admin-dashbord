@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/application/auth_controller.dart';
 import '../routing/app_route.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_mode_provider.dart';
@@ -21,7 +22,17 @@ class AppShell extends ConsumerWidget {
 
     if (width < 960) {
       return Scaffold(
-        appBar: AppBar(title: Text(AppRoutes.titleByLocation(location))),
+        appBar: AppBar(
+          title: Text(AppRoutes.titleByLocation(location)),
+          actions: [
+            IconButton(
+              tooltip: 'Выйти',
+              onPressed: () => _logout(context, ref),
+              icon: const Icon(Icons.logout_outlined),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
         floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
         floatingActionButton: _ThemeToggleButton(
           isDark: isDark,
@@ -91,6 +102,20 @@ class AppShell extends ConsumerWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
+              trailing: Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: railExtended
+                    ? TextButton.icon(
+                        onPressed: () => _logout(context, ref),
+                        icon: const Icon(Icons.logout_outlined),
+                        label: const Text('Выйти'),
+                      )
+                    : IconButton(
+                        tooltip: 'Выйти',
+                        onPressed: () => _logout(context, ref),
+                        icon: const Icon(Icons.logout_outlined),
+                      ),
+              ),
               destinations: AppRoutes.navItems
                   .map(
                     (item) => NavigationRailDestination(
@@ -140,6 +165,11 @@ class AppShell extends ConsumerWidget {
     ref.read(themeModeProvider.notifier).state = isDark
         ? ThemeMode.light
         : ThemeMode.dark;
+  }
+
+  void _logout(BuildContext context, WidgetRef ref) {
+    ref.read(authControllerProvider.notifier).logout();
+    context.go(AppRoutes.login);
   }
 }
 

@@ -11,15 +11,17 @@ class ApiClient {
 
   final Dio _dio;
 
-  factory ApiClient.create() {
-    return ApiClient(createDio());
+  factory ApiClient.create({String? token, bool useDefaultToken = true}) {
+    return ApiClient(createDio(token: token, useDefaultToken: useDefaultToken));
   }
 
-  static Dio createDio() {
+  static Dio createDio({String? token, bool useDefaultToken = true}) {
     final headers = <String, String>{'Accept': 'application/json'};
-    final token = AppConfig.adminToken.trim();
-    if (token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
+    final runtimeToken = token?.trim() ?? '';
+    final defaultToken = useDefaultToken ? AppConfig.adminToken.trim() : '';
+    final authToken = runtimeToken.isNotEmpty ? runtimeToken : defaultToken;
+    if (authToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $authToken';
     }
 
     final dio = Dio(
@@ -34,17 +36,6 @@ class ApiClient {
 
     if (!kIsWeb) {
       dio.options.sendTimeout = const Duration(seconds: 15);
-    }
-
-    if (kDebugMode) {
-      dio.interceptors.add(
-        LogInterceptor(
-          requestBody: true,
-          responseBody: false,
-          requestHeader: false,
-          responseHeader: false,
-        ),
-      );
     }
 
     return dio;

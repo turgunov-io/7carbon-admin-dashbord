@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_error.dart';
+import '../../auth/application/auth_controller.dart';
 import '../data/admin_repository.dart';
 import '../domain/admin_entity_definition.dart';
 import '../domain/admin_entity_registry.dart';
@@ -12,7 +13,8 @@ import '../models/admin_entity_item.dart';
 import 'admin_entity_state.dart';
 
 final dioProvider = Provider<Dio>((ref) {
-  final dio = ApiClient.createDio();
+  final token = ref.watch(authTokenProvider);
+  final dio = ApiClient.createDio(token: token, useDefaultToken: false);
   ref.onDispose(() {
     dio.close(force: true);
   });
@@ -164,7 +166,12 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
     var sawTitleNotEditable = false;
     var sawCreateFailed = false;
 
-    for (final attempt in _buildTuningSubmitPayloads(payload)) {
+    final attempts = List<Map<String, dynamic>>.from(
+      _buildTuningSubmitPayloads(payload),
+    );
+
+    for (var i = 0; i < attempts.length; i++) {
+      final attempt = attempts[i];
       try {
         await submit(attempt);
         return;
@@ -175,6 +182,16 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
         }
         if (_isCreateFailedError(error)) {
           sawCreateFailed = true;
+        }
+
+        final sanitized = _stripNotEditableFields(attempt, error);
+        if (sanitized != null) {
+          attempts.add(sanitized);
+        }
+
+        final reduced = _stripOptionalTuningFields(attempt, error);
+        if (reduced != null) {
+          attempts.add(reduced);
         }
       }
     }
@@ -360,14 +377,23 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       'galleryImages',
     ]);
 
+    // Backend marks `title` (and some system fields) as non-editable.
+    // Keep the user's input for local fallbacks, but do not send these keys.
+    payload.removeWhere(
+      (key, _) => {
+        'title',
+        'title_model',
+        'created_at',
+        'updated_at',
+        'date',
+      }.contains(key),
+    );
+
     if (brand != null) {
       payload['brand'] = brand.toString().trim();
     }
     if (model != null) {
       payload['model'] = model.toString().trim();
-    }
-    if (title != null) {
-      payload['title'] = title.toString().trim();
     }
     if (description != null) {
       payload['description'] = description.toString().trim();
@@ -375,13 +401,25 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       payload['description'] = title.toString().trim();
     }
     if (price != null) {
-      payload['price'] = price.toString().trim();
+      var priceText = price.toString().trim();
+      // Remove currency symbols/spaces and normalize decimal separator.
+      priceText = priceText.replaceAll(RegExp(r'[^0-9,.-]'), '');
+      if (priceText.contains(',') && !priceText.contains('.')) {
+        priceText = priceText.replaceAll(',', '.');
+      }
+      // Remove thousand separators like "6,059.63" => "6059.63".
+      priceText = priceText.replaceAll(RegExp(r'(?<=\d),(?=\d{3}\b)'), '');
+      payload['price'] = priceText;
     }
     if (cardDescription != null) {
       payload['card_description'] = cardDescription.toString().trim();
+    } else if (title != null) {
+      payload['card_description'] = title.toString().trim();
     }
     if (fullDescription != null) {
       payload['full_description'] = fullDescription.toString().trim();
+    } else if (cardDescription != null) {
+      payload['full_description'] = cardDescription.toString().trim();
     }
     if (cardImageUrl != null) {
       payload['card_image_url'] = cardImageUrl.toString().trim();
@@ -399,7 +437,6 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
     const allowedKeys = <String>{
       'brand',
       'model',
-      'title',
       'description',
       'price',
       'card_description',
@@ -440,27 +477,7 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       }
     }
 
-    final base = Map<String, dynamic>.from(payload);
-    final titleCandidate = _pickText([
-      base['title'],
-      base['description'],
-      base['card_description'],
-    ]);
-
-    final withTitle = Map<String, dynamic>.from(base);
-    if (titleCandidate != null) {
-      withTitle['title'] = titleCandidate;
-    }
-    addVariant(withTitle);
-    final withTitleNoDescription = Map<String, dynamic>.from(withTitle)
-      ..remove('description');
-    addVariant(withTitleNoDescription);
-
-    final withoutTitle = Map<String, dynamic>.from(base)..remove('title');
-    if (titleCandidate != null && _isEmptyValue(withoutTitle['description'])) {
-      withoutTitle['description'] = titleCandidate;
-    }
-    addVariant(withoutTitle);
+    addVariant(Map<String, dynamic>.from(payload));
 
     final expanded = <Map<String, dynamic>>[];
     for (final variant in result) {
@@ -494,19 +511,6 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
     ];
   }
 
-  String? _pickText(List<dynamic> values) {
-    for (final value in values) {
-      if (value == null) {
-        continue;
-      }
-      final text = value.toString().trim();
-      if (text.isNotEmpty) {
-        return text;
-      }
-    }
-    return null;
-  }
-
   bool _isTitleNotEditableError(ApiError error) {
     if (error.statusCode != 422) {
       return false;
@@ -520,6 +524,61 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       return false;
     }
     return error.message.toLowerCase().contains('failed to create record');
+  }
+
+  Map<String, dynamic>? _stripNotEditableFields(
+    Map<String, dynamic> payload,
+    ApiError error,
+  ) {
+    final details = error.details;
+    if (details is! Map<String, dynamic>) {
+      return null;
+    }
+    final errors = details['errors'];
+    if (errors is! Map) {
+      return null;
+    }
+
+    final next = Map<String, dynamic>.from(payload);
+    var removed = false;
+    for (final entry in errors.entries) {
+      final key = entry.key.toString();
+      final value = entry.value == null
+          ? ''
+          : entry.value.toString().toLowerCase();
+      if (!value.contains('not editable')) {
+        continue;
+      }
+      next.remove(key);
+      removed = true;
+    }
+
+    if (!removed) {
+      return null;
+    }
+    return next;
+  }
+
+  Map<String, dynamic>? _stripOptionalTuningFields(
+    Map<String, dynamic> payload,
+    ApiError error,
+  ) {
+    // Only try this for server errors to bypass backend constraints.
+    if (error.type != ApiErrorType.server) {
+      return null;
+    }
+    final next = Map<String, dynamic>.from(payload);
+    var removed = false;
+    for (final key in const [
+      'full_image_url',
+      'video_image_url',
+      'video_link',
+    ]) {
+      if (next.remove(key) != null) {
+        removed = true;
+      }
+    }
+    return removed ? next : null;
   }
 
   List<dynamic> _normalizeMixedList(dynamic value) {
