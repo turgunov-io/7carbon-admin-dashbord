@@ -156,6 +156,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         entity.key != 'privacy_sections' &&
         entity.key != 'work_post' &&
         entity.key != 'service_offerings' &&
+        entity.key != 'accessories' &&
         entity.key != 'tuning') {
       return const EmptyState(message: 'Записи отсутствуют');
     }
@@ -217,6 +218,14 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
 
     if (entity.key == 'tuning') {
       return _buildTuningCards(
+        entity: entity,
+        state: state,
+        controller: controller,
+      );
+    }
+
+    if (entity.key == 'accessories') {
+      return _buildAccessoriesList(
         entity: entity,
         state: state,
         controller: controller,
@@ -3143,6 +3152,161 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     return 0.92;
   }
 
+  Widget _buildAccessoriesList({
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+  }) {
+    return EntityTable<AdminEntityItem>(
+      items: state.items,
+      searchHint: 'Поиск по названию, цене или описанию',
+      searchMatcher: (item, query) {
+        final title = _displayValue(item.values['title']).toLowerCase();
+        final price = _displayValue(item.values['price']).toLowerCase();
+        final description = _displayValue(
+          item.values['description'],
+        ).toLowerCase();
+        final cardImage = _displayValue(
+          item.values['card_image_url'],
+        ).toLowerCase();
+        final gallery = _extractUrlList(
+          item.values['full_image_url'],
+        ).join(' ').toLowerCase();
+
+        return item.id.toString().toLowerCase().contains(query) ||
+            title.contains(query) ||
+            price.contains(query) ||
+            description.contains(query) ||
+            cardImage.contains(query) ||
+            gallery.contains(query);
+      },
+      columns: [
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'ID',
+          sortValue: (item) => _sortValue(item.values['id']),
+          cellBuilder: (item) =>
+              SizedBox(width: 72, child: Text(item.id.toString())),
+        ),
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'Title',
+          sortValue: (item) => _sortValue(item.values['title']),
+          cellBuilder: (item) => SizedBox(
+            width: 220,
+            child: Text(
+              _displayValue(item.values['title']),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'Card image preview',
+          cellBuilder: (item) {
+            final imageUrl = _normalizedUrl(item.values['card_image_url']);
+            return SizedBox(
+              width: 150,
+              height: 72,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: imageUrl == null
+                    ? null
+                    : () => _openSingleImageDialog(imageUrl),
+                child: _BannerImagePreview(url: imageUrl),
+              ),
+            );
+          },
+        ),
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'Price',
+          sortValue: (item) => _sortValue(item.values['price']),
+          cellBuilder: (item) => SizedBox(
+            width: 130,
+            child: Text(
+              _displayValue(item.values['price']),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'Description',
+          sortValue: (item) => _sortValue(item.values['description']),
+          cellBuilder: (item) => SizedBox(
+            width: 320,
+            child: Text(
+              _displayValue(item.values['description']),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'Created at',
+          sortValue: (item) => _sortValue(item.values['created_at']),
+          cellBuilder: (item) => SizedBox(
+            width: 170,
+            child: Text(
+              _displayValue(item.values['created_at']),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'Updated at',
+          sortValue: (item) => _sortValue(item.values['updated_at']),
+          cellBuilder: (item) => SizedBox(
+            width: 170,
+            child: Text(
+              _displayValue(item.values['updated_at']),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        DataColumnDefinition<AdminEntityItem>(
+          label: 'Actions',
+          cellBuilder: (item) => SizedBox(
+            width: 104,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Edit',
+                  onPressed: () => _openEditDialog(entity, controller, item),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Delete',
+                  onPressed: () => _confirmDelete(entity, controller, item.id),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+      toolbarWidgets: [
+        FilledButton.icon(
+          onPressed: state.submitting
+              ? null
+              : () => _openCreateDialog(entity, controller),
+          icon: const Icon(Icons.add),
+          label: const Text('Добавить аксессуар'),
+        ),
+        if (state.errorMessage != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Text(
+              state.errorMessage!,
+              style: const TextStyle(color: AppColors.errorAccent),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildServiceOfferingsList({
     required AdminEntityDefinition entity,
     required AdminEntityState state,
@@ -3442,30 +3606,35 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     if (!mounted) {
       return;
     }
-    final payload = await showDialog<Map<String, dynamic>>(
+    await showDialog<void>(
       context: context,
-      builder: (context) =>
-          _EntityFormDialog(title: 'Создать запись', entity: entity),
+      builder: (context) => _EntityFormDialog(
+        title: 'Создать запись',
+        entity: entity,
+        onSubmit: (payload) async {
+          final Map<String, dynamic> nextPayload;
+          if (extraPayload == null) {
+            nextPayload = payload;
+          } else {
+            nextPayload = Map<String, dynamic>.from(payload)
+              ..addAll(extraPayload);
+          }
+
+          try {
+            await controller.create(nextPayload);
+            _showMessage('Запись создана');
+            return true;
+          } on ApiError catch (error) {
+            _showMessage(error.message);
+          } catch (error) {
+            _showMessage(
+              'Не удалось создать запись. Проверьте заполнение полей.',
+            );
+          }
+          return false;
+        },
+      ),
     );
-    if (payload == null) {
-      return;
-    }
-
-    final Map<String, dynamic> nextPayload;
-    if (extraPayload == null) {
-      nextPayload = payload;
-    } else {
-      nextPayload = Map<String, dynamic>.from(payload)..addAll(extraPayload);
-    }
-
-    try {
-      await controller.create(nextPayload);
-      _showMessage('Запись создана');
-    } on ApiError catch (error) {
-      _showMessage(error.message);
-    } catch (error) {
-      _showMessage('Не удалось создать запись. Проверьте заполнение полей.');
-    }
   }
 
   Future<void> _openEditDialog(
@@ -3479,33 +3648,36 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     if (!mounted) {
       return;
     }
-    final payload = await showDialog<Map<String, dynamic>>(
+    await showDialog<void>(
       context: context,
       builder: (context) => _EntityFormDialog(
         title: 'Редактировать запись',
         entity: entity,
         initialValues: _normalizedFormValues(entity, item.values),
+        onSubmit: (payload) async {
+          final Map<String, dynamic> nextPayload;
+          if (extraPayload == null) {
+            nextPayload = payload;
+          } else {
+            nextPayload = Map<String, dynamic>.from(payload)
+              ..addAll(extraPayload);
+          }
+
+          try {
+            await controller.update(item.id, nextPayload);
+            _showMessage('Запись обновлена');
+            return true;
+          } on ApiError catch (error) {
+            _showMessage(error.message);
+          } catch (error) {
+            _showMessage(
+              'Не удалось обновить запись. Проверьте заполнение полей.',
+            );
+          }
+          return false;
+        },
       ),
     );
-    if (payload == null) {
-      return;
-    }
-
-    final Map<String, dynamic> nextPayload;
-    if (extraPayload == null) {
-      nextPayload = payload;
-    } else {
-      nextPayload = Map<String, dynamic>.from(payload)..addAll(extraPayload);
-    }
-
-    try {
-      await controller.update(item.id, nextPayload);
-      _showMessage('Запись обновлена');
-    } on ApiError catch (error) {
-      _showMessage(error.message);
-    } catch (error) {
-      _showMessage('Не удалось обновить запись. Проверьте заполнение полей.');
-    }
   }
 
   Map<String, dynamic> _normalizedFormValues(
@@ -4247,11 +4419,13 @@ class _EntityFormDialog extends ConsumerStatefulWidget {
     required this.title,
     required this.entity,
     this.initialValues,
+    this.onSubmit,
   });
 
   final String title;
   final AdminEntityDefinition entity;
   final Map<String, dynamic>? initialValues;
+  final Future<bool> Function(Map<String, dynamic> payload)? onSubmit;
 
   @override
   ConsumerState<_EntityFormDialog> createState() => _EntityFormDialogState();
@@ -4262,6 +4436,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
   late final Map<String, TextEditingController> _controllers;
   late final Map<String, List<TextEditingController>> _arrayControllers;
   final _arrayErrors = <String, String>{};
+  bool _submitting = false;
 
   List<AdminFieldDefinition> get _formFields {
     return widget.entity.formFields;
@@ -4343,18 +4518,29 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () {
-            _dismissActiveFocus();
-            Navigator.of(context).pop();
-          },
+          onPressed: _submitting
+              ? null
+              : () {
+                  _dismissActiveFocus();
+                  Navigator.of(context).pop();
+                },
           child: const Text('Отмена'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Сохранить')),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Сохранить'),
+        ),
       ],
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     _dismissActiveFocus();
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
@@ -4401,6 +4587,28 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
       }
     }
 
+    final submit = widget.onSubmit;
+    if (submit != null) {
+      setState(() {
+        _submitting = true;
+      });
+      var shouldClose = false;
+      try {
+        shouldClose = await submit(result);
+      } finally {
+        if (mounted) {
+          setState(() {
+            _submitting = false;
+          });
+        }
+      }
+      if (!mounted || !shouldClose) {
+        return;
+      }
+      Navigator.of(context).pop();
+      return;
+    }
+
     Future<void>.delayed(Duration.zero, () {
       if (!mounted) {
         return;
@@ -4443,7 +4651,8 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
         field.type == AdminFieldType.json ||
         _isContactJsonField(field);
     final uploadable = _isSingleUploadTarget(field);
-    final mediaPreview = uploadable
+    final previewable = _isPreviewableImageField(field);
+    final mediaPreview = previewable
         ? _buildSingleUploadPreview(field, controller.text)
         : null;
 
@@ -4456,6 +4665,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
             controller: controller,
             minLines: isLongText ? 2 : 1,
             maxLines: isLongText ? 6 : 1,
+            onChanged: previewable ? (_) => setState(() {}) : null,
             onTapOutside: (_) => _dismissActiveFocus(),
             decoration: InputDecoration(
               labelText: field.required ? '${field.label} *' : field.label,
@@ -4665,45 +4875,75 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
               Column(
                 children: List.generate(items.length, (index) {
                   final controller = items[index];
+                  final previewUrl = _isArrayImagePreviewTarget(field)
+                      ? _resolvePreviewUrl(controller.text)
+                      : null;
                   return Padding(
                     key: ObjectKey(controller),
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: TextField(
-                            controller: controller,
-                            minLines: jsonArrayField ? 2 : 1,
-                            maxLines: jsonArrayField ? 6 : 1,
-                            onTapOutside: (_) => _dismissActiveFocus(),
-                            decoration: InputDecoration(
-                              labelText: _arrayItemLabel(field, index),
-                              hintText: _arrayHintText(field),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                minLines: jsonArrayField ? 2 : 1,
+                                maxLines: jsonArrayField ? 6 : 1,
+                                onChanged: _isArrayImagePreviewTarget(field)
+                                    ? (_) => setState(() {})
+                                    : null,
+                                onTapOutside: (_) => _dismissActiveFocus(),
+                                decoration: InputDecoration(
+                                  labelText: _arrayItemLabel(field, index),
+                                  hintText: _arrayHintText(field),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Вверх',
+                              onPressed: index == 0
+                                  ? null
+                                  : () => _moveArrayItem(
+                                      field.key,
+                                      index,
+                                      index - 1,
+                                    ),
+                              icon: const Icon(Icons.arrow_upward_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Вниз',
+                              onPressed: index == items.length - 1
+                                  ? null
+                                  : () => _moveArrayItem(
+                                      field.key,
+                                      index,
+                                      index + 1,
+                                    ),
+                              icon: const Icon(Icons.arrow_downward_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Удалить',
+                              onPressed: () =>
+                                  _removeArrayItem(field.key, index),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                        if (previewUrl != null) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 120,
+                            width: double.infinity,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => _openImagePreview(previewUrl),
+                              child: _BannerImagePreview(url: previewUrl),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          tooltip: 'Вверх',
-                          onPressed: index == 0
-                              ? null
-                              : () =>
-                                    _moveArrayItem(field.key, index, index - 1),
-                          icon: const Icon(Icons.arrow_upward_outlined),
-                        ),
-                        IconButton(
-                          tooltip: 'Вниз',
-                          onPressed: index == items.length - 1
-                              ? null
-                              : () =>
-                                    _moveArrayItem(field.key, index, index + 1),
-                          icon: const Icon(Icons.arrow_downward_outlined),
-                        ),
-                        IconButton(
-                          tooltip: 'Удалить',
-                          onPressed: () => _removeArrayItem(field.key, index),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
+                        ],
                       ],
                     ),
                   );
@@ -4746,7 +4986,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     if (_isJsonArrayField(field)) {
       return 'Пункт ${index + 1}';
     }
-    if (_isArrayUploadTarget(field)) {
+    if (_isArrayUploadTarget(field) || _isArrayImagePreviewTarget(field)) {
       return 'Изображение ${index + 1}';
     }
     return 'Значение ${index + 1}';
@@ -4756,7 +4996,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     if (_isJsonArrayField(field)) {
       return 'Например: Полировка кузова';
     }
-    if (_isArrayUploadTarget(field)) {
+    if (_isArrayUploadTarget(field) || _isArrayImagePreviewTarget(field)) {
       return 'При необходимости можно вставить ссылку на изображение';
     }
     return null;
@@ -4796,6 +5036,11 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     return _arrayUploadTargets.contains(key);
   }
 
+  bool _isArrayImagePreviewTarget(AdminFieldDefinition field) {
+    final key = '${widget.entity.key}.${field.key}';
+    return _arrayImagePreviewTargets.contains(key);
+  }
+
   String? _suggestedFolder(AdminFieldDefinition field) {
     final entityKey = widget.entity.key;
     final fieldKey = field.key;
@@ -4822,6 +5067,9 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     }
     if (entityKey == 'tuning' && fieldKey == 'full_image_url') {
       return 'tuning/full';
+    }
+    if (entityKey == 'accessories' && fieldKey == 'card_image_url') {
+      return 'accessories/card';
     }
     if (entityKey == 'service_offerings' && fieldKey == 'gallery_images') {
       return 'service_offerings/gallery';
@@ -4942,6 +5190,7 @@ const _singleUploadTargets = <String>{
   'portfolio_items.image_url',
   'tuning.card_image_url',
   'tuning.video_image_url',
+  'accessories.card_image_url',
   'work_post.card_image_url',
   'work_post.video_image_url',
 };
@@ -4954,12 +5203,20 @@ const _singleImagePreviewTargets = <String>{
   'portfolio_items.image_url',
   'tuning.card_image_url',
   'tuning.video_image_url',
+  'accessories.card_image_url',
   'work_post.card_image_url',
   'work_post.video_image_url',
 };
 
 const _arrayUploadTargets = <String>{
   'tuning.full_image_url',
+  'service_offerings.gallery_images',
+  'work_post.full_image_url',
+};
+
+const _arrayImagePreviewTargets = <String>{
+  'tuning.full_image_url',
+  'accessories.full_image_url',
   'service_offerings.gallery_images',
   'work_post.full_image_url',
 };
