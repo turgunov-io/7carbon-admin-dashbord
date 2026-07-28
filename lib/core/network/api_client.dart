@@ -112,7 +112,7 @@ class ApiClient {
     } catch (error) {
       throw ApiError(
         type: ApiErrorType.unknown,
-        message: 'РќРµРѕР¶РёРґР°РЅРЅР°СЏ РѕС€РёР±РєР°: $error',
+        message: 'Неожиданная ошибка: $error',
         details: error,
       );
     }

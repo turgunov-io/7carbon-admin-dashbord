@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -43,10 +44,29 @@ final adminEntityByKeyProvider = Provider.family<AdminEntityDefinition, String>(
   },
 );
 
+/// How long a disposed entity controller stays cached, so switching between
+/// sections and coming back does not trigger a fresh network round-trip.
+/// The page still exposes a manual refresh for forcing a reload.
+const _entityCacheWindow = Duration(seconds: 60);
+
 final adminEntityControllerProvider = StateNotifierProvider.autoDispose
     .family<AdminEntityController, AdminEntityState, String>((ref, key) {
       final repository = ref.watch(adminRepositoryProvider);
       final entity = ref.watch(adminEntityByKeyProvider(key));
+
+      final link = ref.keepAlive();
+      Timer? expiry;
+      ref.onCancel(() {
+        expiry = Timer(_entityCacheWindow, link.close);
+      });
+      ref.onResume(() {
+        expiry?.cancel();
+        expiry = null;
+      });
+      ref.onDispose(() {
+        expiry?.cancel();
+      });
+
       return AdminEntityController(repository: repository, entity: entity)
         ..load();
     });

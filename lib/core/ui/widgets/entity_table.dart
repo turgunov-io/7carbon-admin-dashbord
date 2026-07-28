@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 typedef SearchMatcher<T> = bool Function(T item, String query);
@@ -39,41 +41,119 @@ class EntityTable<T> extends StatefulWidget {
 }
 
 class _EntityTableState<T> extends State<EntityTable<T>> {
+  static const _searchDebounce = Duration(milliseconds: 250);
+
+  final TextEditingController _searchController = TextEditingController();
+  late final _EntityTableSource<T> _source;
+
+  Timer? _debounce;
   String _query = '';
   int? _sortColumnIndex;
   bool _sortAscending = true;
+
+  /// Result of filter + sort. Recomputed only when the inputs actually change,
+  /// never on an unrelated rebuild (theme change, parent repaint, resize).
+  List<T> _visibleItems = const [];
+
   final int _rowsPerPage = 10;
 
   @override
-  Widget build(BuildContext context) {
-    final filtered = widget.items.where((item) {
-      final query = _query.trim().toLowerCase();
-      if (query.isEmpty) {
-        return true;
-      }
-      if (widget.searchMatcher != null) {
-        return widget.searchMatcher!(item, query);
-      }
-      return item.toString().toLowerCase().contains(query);
-    }).toList();
-
-    if (_sortColumnIndex != null) {
-      final column = widget.columns[_sortColumnIndex!];
-      if (column.sortValue != null) {
-        filtered.sort((a, b) {
-          final left = column.sortValue!(a);
-          final right = column.sortValue!(b);
-          final result = _compare(left, right);
-          return _sortAscending ? result : -result;
-        });
-      }
-    }
-
-    final dataSource = _EntityTableSource<T>(
-      items: filtered,
+  void initState() {
+    super.initState();
+    _visibleItems = _computeVisibleItems();
+    _source = _EntityTableSource<T>(
+      items: _visibleItems,
       columns: widget.columns,
     );
-    final availableRowsPerPage = _buildRowsPerPageOptions(filtered.length);
+  }
+
+  @override
+  void didUpdateWidget(covariant EntityTable<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.items, widget.items) ||
+        !identical(oldWidget.columns, widget.columns) ||
+        oldWidget.searchMatcher != widget.searchMatcher) {
+      _refreshVisibleItems();
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    _source.dispose();
+    super.dispose();
+  }
+
+  /// Recomputes the filtered/sorted view and pushes it into the existing
+  /// [DataTableSource] instead of allocating a new one on every build.
+  void _refreshVisibleItems() {
+    _visibleItems = _computeVisibleItems();
+    _source.updateData(items: _visibleItems, columns: widget.columns);
+  }
+
+  List<T> _computeVisibleItems() {
+    final query = _query.trim().toLowerCase();
+    final matcher = widget.searchMatcher;
+    final needsSort =
+        _sortColumnIndex != null &&
+        _sortColumnIndex! < widget.columns.length &&
+        widget.columns[_sortColumnIndex!].sortValue != null;
+
+    // Nothing to filter or sort: hand back the source list, no copy.
+    if (query.isEmpty && !needsSort) {
+      return widget.items;
+    }
+
+    final result = query.isEmpty
+        ? List<T>.of(widget.items)
+        : widget.items.where((item) {
+            if (matcher != null) {
+              return matcher(item, query);
+            }
+            return item.toString().toLowerCase().contains(query);
+          }).toList();
+
+    if (!needsSort) {
+      return result;
+    }
+
+    // Decorate-sort-undecorate: sortValue runs once per item rather than
+    // O(n log n) times from inside the comparator.
+    final sortValue = widget.columns[_sortColumnIndex!].sortValue!;
+    final keyed = List<_SortEntry<T>>.generate(
+      result.length,
+      (index) => _SortEntry<T>(result[index], sortValue(result[index])),
+      growable: false,
+    );
+    keyed.sort((a, b) {
+      final comparison = _compare(a.key, b.key);
+      return _sortAscending ? comparison : -comparison;
+    });
+    return List<T>.generate(
+      keyed.length,
+      (index) => keyed[index].item,
+      growable: false,
+    );
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(_searchDebounce, () {
+      if (!mounted || value == _query) {
+        return;
+      }
+      setState(() {
+        _query = value;
+        _refreshVisibleItems();
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredCount = _visibleItems.length;
+    final availableRowsPerPage = _buildRowsPerPageOptions(filteredCount);
     final rowsPerPage = _normalizedRowsPerPage(
       current: _rowsPerPage,
       options: availableRowsPerPage,
@@ -91,11 +171,13 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
             final searchWidth = compact
                 ? (maxWidth - 24).clamp(220.0, 420.0).toDouble()
                 : 320.0;
+            final showToolbar =
+                widget.showSearch || widget.toolbarWidgets.isNotEmpty;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (widget.showSearch || widget.toolbarWidgets.isNotEmpty)
+                if (showToolbar) ...[
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
@@ -105,35 +187,30 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
                         SizedBox(
                           width: searchWidth,
                           child: TextField(
+                            controller: _searchController,
                             decoration: InputDecoration(
                               prefixIcon: const Icon(Icons.search),
                               hintText: widget.searchHint,
                             ),
-                            onChanged: (value) {
-                              setState(() {
-                                _query = value;
-                              });
-                            },
+                            onChanged: _onSearchChanged,
                           ),
                         ),
                       ...widget.toolbarWidgets,
                     ],
                   ),
-                if (widget.showSearch || widget.toolbarWidgets.isNotEmpty)
                   const SizedBox(height: 10),
-                if (filtered.isEmpty)
+                ],
+                if (filteredCount == 0)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(child: Text('Записи не найдены')),
                   )
                 else
                   _buildDataTable(
-                    context: context,
                     maxWidth: maxWidth,
-                    filteredCount: filtered.length,
+                    filteredCount: filteredCount,
                     rowsPerPage: rowsPerPage,
                     availableRowsPerPage: availableRowsPerPage,
-                    dataSource: dataSource,
                   ),
               ],
             );
@@ -144,12 +221,10 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
   }
 
   Widget _buildDataTable({
-    required BuildContext context,
     required double maxWidth,
     required int filteredCount,
     required int rowsPerPage,
     required List<int> availableRowsPerPage,
-    required DataTableSource dataSource,
   }) {
     final estimatedTableWidth = widget.columns.length * 180.0;
     final tableWidth = estimatedTableWidth > maxWidth
@@ -173,11 +248,12 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
                       setState(() {
                         _sortColumnIndex = columnIndex;
                         _sortAscending = ascending;
+                        _refreshVisibleItems();
                       });
                     },
             );
-          }),
-          source: dataSource,
+          }, growable: false),
+          source: _source,
           rowsPerPage: rowsPerPage,
           availableRowsPerPage: availableRowsPerPage,
           onRowsPerPageChanged: null,
@@ -241,11 +317,27 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
   }
 }
 
+class _SortEntry<T> {
+  const _SortEntry(this.item, this.key);
+
+  final T item;
+  final Object? key;
+}
+
 class _EntityTableSource<T> extends DataTableSource {
   _EntityTableSource({required this.items, required this.columns});
 
-  final List<T> items;
-  final List<DataColumnDefinition<T>> columns;
+  List<T> items;
+  List<DataColumnDefinition<T>> columns;
+
+  void updateData({
+    required List<T> items,
+    required List<DataColumnDefinition<T>> columns,
+  }) {
+    this.items = items;
+    this.columns = columns;
+    notifyListeners();
+  }
 
   @override
   DataRow? getRow(int index) {

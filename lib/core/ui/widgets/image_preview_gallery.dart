@@ -16,6 +16,11 @@ class ImagePreview extends StatelessWidget {
       return _placeholder(size);
     }
 
+    // Decode thumbnails at display resolution. Without this a 3000px source
+    // image is decoded at full size into memory for a ~56px cell.
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final decodeSize = (size * devicePixelRatio).round();
+
     return InkWell(
       onTap: () => _openImageDialog(context, normalized),
       borderRadius: BorderRadius.circular(8),
@@ -27,6 +32,10 @@ class ImagePreview extends StatelessWidget {
           child: Image.network(
             normalized,
             fit: BoxFit.cover,
+            cacheWidth: decodeSize,
+            cacheHeight: decodeSize,
+            filterQuality: FilterQuality.low,
+            gaplessPlayback: true,
             errorBuilder: (context, error, stackTrace) => _placeholder(size),
             loadingBuilder: (context, child, event) {
               if (event == null) {

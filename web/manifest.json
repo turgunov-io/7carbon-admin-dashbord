@@ -1,12 +1,12 @@
 {
-    "name": "carbon_admin",
-    "short_name": "carbon_admin",
+    "name": "Carbon Admin",
+    "short_name": "Carbon Admin",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#00000000",
+    "background_color": "#FAFAFA",
     "theme_color": "#FFCC00",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "description": "Панель управления 7carbon.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

@@ -1778,7 +1778,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               icon: const Icon(Icons.visibility_outlined),
                             ),
                             IconButton(
-                              tooltip: 'Edit',
+                              tooltip: 'Редактировать',
                               onPressed: () =>
                                   _openEditDialog(entity, controller, item),
                               icon: const Icon(Icons.edit_outlined),
@@ -3188,7 +3188,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               SizedBox(width: 72, child: Text(item.id.toString())),
         ),
         DataColumnDefinition<AdminEntityItem>(
-          label: 'Title',
+          label: 'Название',
           sortValue: (item) => _sortValue(item.values['title']),
           cellBuilder: (item) => SizedBox(
             width: 220,
@@ -3200,7 +3200,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           ),
         ),
         DataColumnDefinition<AdminEntityItem>(
-          label: 'Card image preview',
+          label: 'Превью картинки',
           cellBuilder: (item) {
             final imageUrl = _normalizedUrl(item.values['card_image_url']);
             return SizedBox(
@@ -3217,7 +3217,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           },
         ),
         DataColumnDefinition<AdminEntityItem>(
-          label: 'Price',
+          label: 'Цена',
           sortValue: (item) => _sortValue(item.values['price']),
           cellBuilder: (item) => SizedBox(
             width: 130,
@@ -3229,7 +3229,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           ),
         ),
         DataColumnDefinition<AdminEntityItem>(
-          label: 'Description',
+          label: 'Описание',
           sortValue: (item) => _sortValue(item.values['description']),
           cellBuilder: (item) => SizedBox(
             width: 320,
@@ -3241,7 +3241,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           ),
         ),
         DataColumnDefinition<AdminEntityItem>(
-          label: 'Created at',
+          label: 'Создано',
           sortValue: (item) => _sortValue(item.values['created_at']),
           cellBuilder: (item) => SizedBox(
             width: 170,
@@ -3253,7 +3253,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           ),
         ),
         DataColumnDefinition<AdminEntityItem>(
-          label: 'Updated at',
+          label: 'Обновлено',
           sortValue: (item) => _sortValue(item.values['updated_at']),
           cellBuilder: (item) => SizedBox(
             width: 170,
@@ -3265,18 +3265,18 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           ),
         ),
         DataColumnDefinition<AdminEntityItem>(
-          label: 'Actions',
+          label: 'Действия',
           cellBuilder: (item) => SizedBox(
             width: 104,
             child: Row(
               children: [
                 IconButton(
-                  tooltip: 'Edit',
+                  tooltip: 'Редактировать',
                   onPressed: () => _openEditDialog(entity, controller, item),
                   icon: const Icon(Icons.edit_outlined),
                 ),
                 IconButton(
-                  tooltip: 'Delete',
+                  tooltip: 'Удалить',
                   onPressed: () => _confirmDelete(entity, controller, item.id),
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -3431,7 +3431,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               icon: const Icon(Icons.visibility_outlined),
                             ),
                             IconButton(
-                              tooltip: 'Edit',
+                              tooltip: 'Редактировать',
                               onPressed: () =>
                                   _openEditDialog(entity, controller, item),
                               icon: const Icon(Icons.edit_outlined),
@@ -3496,7 +3496,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                             ),
                             const SizedBox(height: 8),
                             if (galleryUrls.isEmpty)
-                              const Text('Gallery: —')
+                              const Text('Галерея: —')
                             else
                               Wrap(
                                 spacing: 8,
@@ -4257,6 +4257,16 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   }
 }
 
+/// Decode width for a network image rendered into [constraints], so large
+/// source images are not decoded at full resolution for a small slot.
+int? _decodeWidthFor(BuildContext context, BoxConstraints constraints) {
+  if (!constraints.maxWidth.isFinite || constraints.maxWidth <= 0) {
+    return null;
+  }
+  final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+  return (constraints.maxWidth * devicePixelRatio).round().clamp(1, 4096);
+}
+
 class _TuningCardImage extends StatelessWidget {
   const _TuningCardImage({this.url});
 
@@ -4268,17 +4278,23 @@ class _TuningCardImage extends StatelessWidget {
       return _buildFallback(context);
     }
 
-    return Image.network(
-      url!,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return _buildFallback(context);
-      },
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) {
-          return child;
-        }
-        return _buildFallback(context, loading: true);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Image.network(
+          url!,
+          fit: BoxFit.cover,
+          cacheWidth: _decodeWidthFor(context, constraints),
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildFallback(context);
+          },
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) {
+              return child;
+            }
+            return _buildFallback(context, loading: true);
+          },
+        );
       },
     );
   }
@@ -4312,15 +4328,21 @@ class _BannerImagePreview extends StatelessWidget {
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        url!,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _fallback(context),
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) {
-            return child;
-          }
-          return _fallback(context, loading: true);
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Image.network(
+            url!,
+            fit: BoxFit.cover,
+            cacheWidth: _decodeWidthFor(context, constraints),
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) => _fallback(context),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+              return _fallback(context, loading: true);
+            },
+          );
         },
       ),
     );
@@ -4358,15 +4380,21 @@ class _PartnerLogoPreview extends StatelessWidget {
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        url!,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => _fallback(context),
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) {
-            return child;
-          }
-          return _fallback(context, loading: true);
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Image.network(
+            url!,
+            fit: BoxFit.contain,
+            cacheWidth: _decodeWidthFor(context, constraints),
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) => _fallback(context),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+              return _fallback(context, loading: true);
+            },
+          );
         },
       ),
     );
@@ -4731,7 +4759,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Preview', style: Theme.of(context).textTheme.labelMedium),
+        Text('Предпросмотр', style: Theme.of(context).textTheme.labelMedium),
         const SizedBox(height: 6),
         SizedBox(
           height: 160,

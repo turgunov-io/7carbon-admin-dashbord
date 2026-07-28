@@ -41,8 +41,7 @@ class AuthRepository {
       if (token == null || token.isEmpty) {
         throw const ApiError(
           type: ApiErrorType.unknown,
-          message:
-              'РЎРµСЂРІРµСЂ РЅРµ РІРµСЂРЅСѓР» С‚РѕРєРµРЅ Р°РІС‚РѕСЂРёР·Р°С†РёРё.',
+          message: 'Сервер не вернул токен авторизации.',
         );
       }
 
@@ -54,7 +53,7 @@ class AuthRepository {
     } catch (error) {
       throw ApiError(
         type: ApiErrorType.unknown,
-        message: 'РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РІС…РѕРґ: $error',
+        message: 'Не удалось выполнить вход: $error',
         details: error,
       );
     }
