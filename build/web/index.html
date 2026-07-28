@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <!--
+    Replaced by the value of the `--base-href` argument passed to
+    `flutter build web`. Must start and end with a slash.
+  -->
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Carbon Admin — панель управления 7carbon.">
+  <meta name="theme-color" content="#FFCC00">
+  <!-- Admin panel: keep it out of search indexes. -->
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Warm up the TLS/DNS handshake to the API before Dart code runs. -->
+  <link rel="preconnect" href="https://api.7carbon.uz" crossorigin>
+  <link rel="dns-prefetch" href="https://api.7carbon.uz">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Carbon Admin">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Carbon Admin</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: #fafafa;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html, body { background-color: #121212; }
+    }
+
+    /* Shown while main.dart.js downloads and boots, then removed by
+       flutter_bootstrap. Without it the user stares at a blank page. */
+    #app-loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: #6b6b6b;
+      transition: opacity 200ms ease-out;
+    }
+
+    #app-loading.app-loading--hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #app-loading .spinner {
+      width: 42px;
+      height: 42px;
+      border: 3px solid rgba(255, 204, 0, 0.25);
+      border-top-color: #FFCC00;
+      border-radius: 50%;
+      animation: app-spin 800ms linear infinite;
+    }
+
+    @keyframes app-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #app-loading .spinner { animation-duration: 2.4s; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app-loading">
+    <div class="spinner"></div>
+    <div>Загрузка панели…</div>
+  </div>
+
+  <script>
+    // Remove the placeholder once Flutter has painted its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var loader = document.getElementById('app-loading');
+      if (!loader) return;
+      loader.classList.add('app-loading--hidden');
+      setTimeout(function () { loader.remove(); }, 250);
+    });
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
