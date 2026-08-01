@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Nuxt build output
+.nuxt/
+.output/
+.nitro/
+.cache/
+.data/
+dist/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Local database (embedded Postgres) & Prisma
+.pgdata/
+prisma/*.db
+prisma/*.db-journal
+
+# Uploads (keep the folder, ignore its contents)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Logs / OS / editor
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Testing
+coverage/

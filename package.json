@@ -1,0 +1,50 @@
+{
+  "name": "@7carbon/dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "7Carbon admin dashboard (Nuxt 4 SSR) + backend Nuxt Server API.",
+  "scripts": {
+    "dev": "nuxt dev --port 3001",
+    "build": "nuxt build",
+    "preview": "nuxt preview --port 3001",
+    "start": "node .output/server/index.mjs",
+    "postinstall": "nuxt prepare && prisma generate",
+    "typecheck": "nuxt typecheck",
+    "lint": "eslint .",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset --force"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/client": "^5.22.0",
+    "jose": "^5.9.6",
+    "nuxt": "~4.0.3",
+    "pino": "^9.5.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^0.7.2",
+    "@nuxtjs/tailwindcss": "^6.12.2",
+    "@pinia/nuxt": "^0.7.0",
+    "@types/node": "^22.20.1",
+    "@vueuse/nuxt": "^12.0.0",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "eslint": "^9.16.0",
+    "pinia": "^2.3.0",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.16",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vue-tsc": "^2.1.10"
+  }
+}
